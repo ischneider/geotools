@@ -16,10 +16,16 @@
  */
 package org.geotools.data.teradata;
 
+import static junit.framework.Assert.*;
+
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Properties;
+import javax.sql.DataSource;
+import org.apache.commons.dbcp.BasicDataSource;
+import org.geotools.data.jdbc.datasource.DBCPDataSource;
 
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.jdbc.JDBCDataStoreFactory;
@@ -33,6 +39,7 @@ import org.geotools.jdbc.JDBCTestSetup;
 public class TeradataTestSetup extends JDBCTestSetup {
 
     protected int srid4326 = 1619;
+    private static DataSource dataSource;
 
     public int getSrid4326() {
         return srid4326;
@@ -122,6 +129,29 @@ public class TeradataTestSetup extends JDBCTestSetup {
 
     }
 
+    @Override
+    public void tearDown() throws Exception {
+        final String leakMessage = "Expected no active connection, either there is a connection leak "
+                + "or you forgot to close some object holding onto connections in the tests (e.g., a reader, an iterator)";
+        if (dataSource instanceof BasicDataSource) {
+            BasicDataSource bds = (BasicDataSource) dataSource;
+            int numActive = bds.getNumActive();
+            if (numActive > 0) {
+                bds.close();
+                dataSource = null;
+            }
+            assertEquals(leakMessage, 0, numActive);
+        }
+    }
+    
+    @Override
+    protected DataSource createDataSource() throws IOException {
+        if (dataSource == null) {
+            dataSource = ((DBCPDataSource)super.createDataSource()).getWrapped();
+        }
+        return dataSource;
+    }
+    
     protected JDBCDataStoreFactory createDataStoreFactory() {
         return new TeradataDataStoreFactory();
     }
