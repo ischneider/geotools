@@ -46,7 +46,6 @@ public class TeradataDialectTest extends JDBCTestSupport {
     @Override
     protected void setUpInternal() throws Exception {
         super.setUpInternal();
-        enableLogging(Level.INFO);
     }
 
     @Override
@@ -79,7 +78,6 @@ public class TeradataDialectTest extends JDBCTestSupport {
     
     // this currently doesn't exercise the indexing since tessalation doesn' exist
     public void testLargerWKTBBox() throws Exception {
-        enableLogging(Level.FINE);
         int coords = insertGeom(30000);
         BBOX bbox = CommonFactoryFinder.getFilterFactory2(null).bbox("geometry", -181.8,-90.868,181.8,84.492,null);
         read(coords, cnt - 1,bbox,true);
@@ -174,7 +172,6 @@ public class TeradataDialectTest extends JDBCTestSupport {
         @Override
         protected void setUpData() throws Exception {
             super.setUpData();
-            enableLogging(Level.FINE);
             runSafe("DELETE FROM SYSSPATIAL.GEOMETRY_COLUMNS WHERE F_TABLE_NAME = 'ft3'");
             runSafe("DROP TRIGGER \"ft3_geometry_mi\"");
             runSafe("DROP TRIGGER \"ft3_geometry_mu\"");
