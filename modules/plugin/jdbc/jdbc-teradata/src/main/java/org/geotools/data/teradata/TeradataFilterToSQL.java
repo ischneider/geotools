@@ -17,14 +17,10 @@
 package org.geotools.data.teradata;
 
 import java.io.IOException;
-import java.text.MessageFormat;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.geotools.feature.type.BasicFeatureTypes;
 import org.geotools.filter.FilterCapabilities;
 import org.geotools.jdbc.PreparedFilterToSQL;
 import org.geotools.jdbc.PrimaryKeyColumn;
@@ -125,9 +121,8 @@ public class TeradataFilterToSQL extends PreparedFilterToSQL {
             encodeIndexPredicate(property, geometry);
 
             property.accept(this, extraData);
-            out.write(".ST_DWithin(new ST_Geometry(");
-            geometry.accept(this, extraData);
-            out.write("),");
+            out.write(".ST_DWithin(");
+            encodeGeometryLiteral(geometry, extraData);
             out.write(Double.toString(filter.getDistance()));
             out.write(")");
         }
@@ -182,9 +177,9 @@ public class TeradataFilterToSQL extends PreparedFilterToSQL {
 
         int tdVersion = ((TeradataDialect)dialect).getTdVersion();
         if (tdVersion > 12) {
-            out.write("(new ST_Geometry(");
-            geometry.accept(this, extraData);
-            out.write(")) = 1");
+            out.write("(");
+            encodeGeometryLiteral(geometry, extraData);
+            out.write(") = 1");
         }
         else {
             out.write("(CAST (");
@@ -275,5 +270,19 @@ public class TeradataFilterToSQL extends PreparedFilterToSQL {
         
         out.write(" WHERE t.cellid = i.cellid)");
         return true;
+    }
+
+    /**
+     * Ensure that if we have a currentSRID (i.e. the geometry in the tables
+     * have an SRID attached directly to them) our predicate gets created with
+     * that.
+     */
+    void encodeGeometryLiteral(Literal geometry, Object extraData) throws IOException {
+        out.write("new ST_Geometry(");
+        geometry.accept(this, extraData);
+        if (currentSRID != null) {
+            out.write(", ?");
+        }
+        out.write(")");
     }
 }

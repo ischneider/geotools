@@ -36,6 +36,7 @@ public class TeradataFilterToSQLTest extends JDBCTestSupport {
         while (features.hasNext()) {
             features.next();
         }
+        features.close();
         // if we made it here, we passed
     }
     

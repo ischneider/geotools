@@ -36,7 +36,6 @@ import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.geotools.filter.function.EnvFunction;
 import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.jdbc.NullPrimaryKey;
@@ -48,6 +47,8 @@ import org.geotools.referencing.CRS;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeDescriptor;
 import org.opengis.feature.type.GeometryDescriptor;
+import org.opengis.referencing.FactoryException;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
@@ -61,7 +62,6 @@ import com.vividsolutions.jts.geom.MultiPolygon;
 import com.vividsolutions.jts.geom.Point;
 import com.vividsolutions.jts.geom.Polygon;
 import com.vividsolutions.jts.io.ParseException;
-import com.vividsolutions.jts.io.WKBReader;
 import com.vividsolutions.jts.io.WKTReader;
 import com.vividsolutions.jts.io.WKTWriter;
 import java.text.MessageFormat;
@@ -140,6 +140,9 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
     
     /** support LOB workaround */
     private boolean lobWorkaroundEnabled;
+
+    /** internally track the SRID as declared in the geometry columns **/
+    final Map<String, Object[]> activeSRID = new HashMap<String, Object[]>();
     
     public TeradataDialect(JDBCDataStore store) {
         super(store);                   
@@ -251,7 +254,12 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
             else {
                 ps.setString(column, wkt);
             }
-            
+            // we're using a prepared statement for the geometry with the SRID
+            // of the geometry. Otherwise, it's just a geometry literal with
+            // no SRID.
+            if (srid >= 0) {
+                ps.setInt(column+1, srid);
+            }
         }
         else {
             ps.setNull(column, Types.OTHER, "Geometry");
@@ -493,7 +501,9 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
     public Integer getGeometrySRID(String schemaName, String tableName,
             String columnName, Connection cx) throws SQLException {
 
-        StringBuffer sql = new StringBuffer("SELECT ref.AUTH_SRID FROM ");
+        Integer srid = null;
+
+        StringBuffer sql = new StringBuffer("SELECT ref.SRID, ref.AUTH_SRID FROM ");
         encodeTableName(SYSSPATIAL, SPATIAL_REF_SYS, sql);
         sql.append(" as ref, ");
         encodeTableName(SYSSPATIAL, GEOMETRY_COLUMNS, sql);
@@ -515,7 +525,7 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
             ResultSet rs = ps.executeQuery(); 
             try {
                 if (rs.next()) {
-                    return rs.getInt(1);
+                    srid = rs.getInt(2);
                 }
                 else {
                     LOGGER.warning(String.format("No SRID entry for %s, %s, %s", schemaName, 
@@ -530,10 +540,72 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
             dataStore.closeSafe(ps);
         }
 
+        Integer geomSRID = resolveGeometrySRID(schemaName, tableName, columnName, cx);
+        Object[] sridInfo = computeActiveSRID(tableName, srid, geomSRID);
 
-        return null;
+        synchronized (this.activeSRID) {
+            this.activeSRID.put(tableName, sridInfo);
+        }
+
+        return (Integer) sridInfo[0];
     }
 
+    static Object[] computeActiveSRID(String table, Integer declaredSRID, Integer geomSRID) {
+        Integer active = declaredSRID;
+        Boolean useSRID = Boolean.FALSE;
+        if (geomSRID != null && geomSRID != 0) {
+            active = geomSRID;
+            if (declaredSRID != null && declaredSRID != geomSRID) {
+                LOGGER.warning("declared SRID of " + table + ": " + declaredSRID +
+                        " ,does not match that of the geometry inside: " + geomSRID);
+            }
+            useSRID = Boolean.TRUE;
+        }
+        return new Object[] {active, useSRID};
+    }
+
+    @Override
+    public CoordinateReferenceSystem createCRS(int srid, Connection cx)
+            throws SQLException {
+        CoordinateReferenceSystem crs = super.createCRS(srid, cx);
+        if (crs == null) {
+            StringBuffer sql = new StringBuffer("SELECT AUTH_SRID FROM ");
+            encodeTableName(SYSSPATIAL, SPATIAL_REF_SYS, sql);
+            sql.append(" WHERE SRID = ?");
+            
+            LOGGER.log(Level.FINE, String.format("%s; 1=%d", sql.toString(), srid));
+
+            int epsgSrid = -1;
+            PreparedStatement ps = cx.prepareStatement(sql.toString());
+            try {
+                ps.setInt(1, srid);
+                ResultSet rs = ps.executeQuery(); 
+                try {
+                    if (rs.next()) {
+                        epsgSrid = rs.getInt(1);
+                    }
+                    else {
+                        LOGGER.warning(String.format("No SRID entry for %d", srid));
+                    }
+                }
+                finally {
+                    dataStore.closeSafe(rs);
+                }
+            }
+            finally {
+                dataStore.closeSafe(ps);
+            }
+            if (epsgSrid != -1) {
+                try {
+                    crs = CRS.decode("EPSG:" + epsgSrid);
+                } catch (FactoryException e) {
+                    LOGGER.log(Level.WARNING, "Could not decode epsg srid " + epsgSrid, e);
+                }
+            }
+        }
+        return crs;
+    }
+    
     public String getGeometryTypeName(Integer type) {
         return "ST_Geometry";
     }
@@ -807,7 +879,61 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
                 LOGGER.fine(String.format("%s.%s.(%s) does not have tessellation entry.", schemaName, 
                     tableName, att.getLocalName()));
             }
+
+            // clear the native SRID info if the geometries in the table were
+            // found not to contain embedded SRID values
+            Object[] sridInfo;
+            synchronized (activeSRID) {
+                sridInfo = activeSRID.remove(tableName);
+            }
+            if (sridInfo != null) {
+                Boolean useSRID = (Boolean) sridInfo[1];
+                if (! useSRID) {
+                    att.getUserData().put(JDBCDataStore.JDBC_NATIVE_SRID, null);
+                }
+            }
+
         }
+    }
+
+    /**
+     * Sniff the SRID of a geometry in the table and resolve to EPSG.
+     */
+    private Integer resolveGeometrySRID(String schemaName, String tableName, String columnName, Connection cx) throws SQLException {
+        // ideally (and potentially) we could resolve the EPSG code in a single
+        // query but terada does not support a top 1 query in a sub query
+        // though there could be an alternative to:
+        //
+        // select AUTH_SRID from sysspatial.spatial_ref_sys where SRID =
+        // (select top 1 "geom".ST_SRID() from "geotools"."srid_in_geom")
+
+        Integer srid = 0;
+        Statement st = cx.createStatement();
+        ResultSet rs = null;
+        StringBuffer sb = new StringBuffer("select top 1 ");
+        encodeColumnName(null, columnName, sb);
+        sb.append(".ST_SRID() from ");
+        encodeTableName(schemaName, tableName, sb);
+        String sql = sb.toString();
+        try {
+            LOGGER.fine(sql);
+            rs = st.executeQuery(sql);
+            if (rs.next()) {
+                srid = rs.getInt(1);
+            }
+            if (srid != null) {
+                sql = "select AUTH_SRID from sysspatial.spatial_ref_sys where SRID = " + srid;
+                LOGGER.fine(sql);
+                rs = st.executeQuery(sql);
+                if (rs.next()) {
+                    srid = rs.getInt(1);
+                }
+            }
+        } finally {
+            dataStore.closeSafe(rs);
+            dataStore.closeSafe(st);
+        }
+        return srid;
     }
     
     public void postCreateTable(String schemaName, SimpleFeatureType featureType, Connection cx) 
