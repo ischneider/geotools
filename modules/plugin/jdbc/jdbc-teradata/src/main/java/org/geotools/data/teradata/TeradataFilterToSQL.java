@@ -140,7 +140,7 @@ public class TeradataFilterToSQL extends PreparedFilterToSQL {
     void visitComparisonSpatialOperator(BinarySpatialOperator filter, PropertyName property,
             Literal geometry, boolean swapped, Object extraData) throws IOException {
 
-        if (!(filter instanceof Disjoint)) {
+        if (!(filter instanceof Disjoint) && currentGeometry != null) {
             if (encodeIndexPredicate(property, geometry)) {
                 out.write( " AND ");
             }

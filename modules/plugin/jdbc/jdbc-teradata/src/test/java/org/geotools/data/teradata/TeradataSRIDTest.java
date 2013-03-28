@@ -1,10 +1,21 @@
 package org.geotools.data.teradata;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.geotools.data.Transaction;
+import org.geotools.factory.CommonFactoryFinder;
+import org.geotools.feature.FeatureCollection;
+import org.geotools.feature.FeatureIterator;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.jdbc.JDBCTestSetup;
 import org.geotools.jdbc.JDBCTestSupport;
 import org.geotools.referencing.CRS;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.filter.FilterFactory;
+import org.opengis.filter.spatial.BBOX;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
 /**
@@ -28,68 +39,93 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
  */
 public class TeradataSRIDTest extends JDBCTestSupport {
 
+    static {
+        Logger.getLogger("").getHandlers()[0].setLevel(Level.ALL);
+        Logger.getLogger("org.geotools.jdbc").setLevel(Level.FINE);
+    }
+
     @Override
     protected JDBCTestSetup createTestSetup() {
         return new TeradataSRIDTestSetup();
     }
 
-    public void testComputeActiveSRID() {
-        Integer declared = 1913;
-        Integer geom = null;
-
-        assertEquals(declared, TeradataDialect.computeActiveSRID("foo", declared, geom)[0]);
-        geom = 2700;
-        assertEquals(geom, TeradataDialect.computeActiveSRID("foo", declared, geom)[0]);
+    public void testBboxFilter() throws Exception {
+        assertBboxEntries("srid_in_geom");
+        assertBboxEntries("srid_in_geom_no_match");
+        assertBboxEntries("srid_in_meta_only");
     }
 
-    private void assertAttributeSRID(String typename, Integer expected) throws Exception {
+    private void assertBboxEntries(String typeName) throws Exception {
+        FilterFactory ff = CommonFactoryFinder.getFilterFactory(null);
+        // should match only "r2"
+        BBOX bbox = ff.bbox(aname("geometry"), 0, 0, 2, 2, "EPSG:4326");
+        FeatureCollection features = dataStore.getFeatureSource(tname(typeName)).getFeatures(bbox);
+        FeatureIterator it = features.features();
+        int cnt = 0;
+        try {
+            while (it.hasNext()) {
+                it.next();
+                cnt++;
+            }
+        } finally {
+            it.close();
+        }
+        assertEquals(2, cnt);
+    }
+
+    private void assertAttributeSRID(String typename, Integer expectedSRID, Integer expectedCrs) throws Exception {
         SimpleFeatureType schema = dataStore.getSchema(typename);
         CoordinateReferenceSystem crs = schema.getGeometryDescriptor().getCoordinateReferenceSystem();
         Integer nativeSRID = (Integer) schema.getGeometryDescriptor().getUserData().get(JDBCDataStore.JDBC_NATIVE_SRID);
-        assertEquals(expected, nativeSRID);
-        CoordinateReferenceSystem expectedCRS = CRS.decode("EPSG:" + expected);
+        assertEquals(expectedSRID, nativeSRID);
+
+        Connection connection = dataStore.getConnection(Transaction.AUTO_COMMIT);
+        Statement st = connection.createStatement();
+        ResultSet rs = st.executeQuery("select SRTEXT from sysspatial.spatial_ref_sys where AUTH_SRID=" + expectedCrs);
+        rs.next();
+        CoordinateReferenceSystem expectedCRS = CRS.parseWKT(rs.getString(1));
         assertEquals(expectedCRS, crs);
+        rs.close();
+        st.close();
+        connection.close();
     }
 
     public void testSRIDInGeom() throws Exception {
-        assertAttributeSRID("srid_in_geom", 4326);
+        assertAttributeSRID("srid_in_geom", 1619, 4326);
     }
 
     public void testSRIDInGeomNoMatch() throws Exception {
-        assertAttributeSRID("srid_in_geom_no_match", 26754);
+        assertAttributeSRID("srid_in_geom_no_match", 2191, 26754);
+    }
+
+    public void testSRIDInMetaOnly() throws Exception {
+        assertAttributeSRID("srid_in_meta_only", null, 4326);
     }
 
     static class TeradataSRIDTestSetup extends TeradataTestSetup {
 
+        private void createTable(String name, Integer internalSRID, Integer geomSRID) throws Exception {
+            runSafe("drop table " + name);
+            runSafe(String.format("DELETE FROM SYSSPATIAL.GEOMETRY_COLUMNS WHERE F_TABLE_NAME = '%s'", name));
+            run(String.format("CREATE TABLE \"%s\"(" //
+                    + "\"id\" PRIMARY KEY not null integer, " //
+                    + "\"geometry\" ST_GEOMETRY)", name));
+            run(String.format("INSERT INTO SYSSPATIAL.GEOMETRY_COLUMNS (F_TABLE_CATALOG, F_TABLE_SCHEMA, F_TABLE_NAME,"
+                    + " F_GEOMETRY_COLUMN, COORD_DIMENSION, SRID, GEOM_TYPE) VALUES ('"
+                    + fixture.getProperty("database") + "', '" + fixture.getProperty("schema")
+                    + "', '%s', 'geometry', 2, " + internalSRID + ", 'POINT')", name));
+            run(String.format("INSERT INTO \"%s\" VALUES(0, 'POINT(0 0)')", name));
+            run(String.format("INSERT INTO \"%s\" VALUES(1, 'POINT(1 1)')", name));
+            if (geomSRID != null) {
+                run(String.format("UPDATE \"%s\" set geometry.st_srid = %s", name, geomSRID));
+            }
+        }
+
         @Override
         protected void setUpData() throws Exception {
-            runSafe("drop table srid_in_geom");
-            runSafe("DELETE FROM SYSSPATIAL.GEOMETRY_COLUMNS WHERE F_TABLE_NAME = 'srid_in_geom'");
-            run("CREATE TABLE \"srid_in_geom\"(" //
-                    + "\"id\" PRIMARY KEY not null integer, " //
-                    + "\"geometry\" ST_GEOMETRY)");
-            run("INSERT INTO SYSSPATIAL.GEOMETRY_COLUMNS (F_TABLE_CATALOG, F_TABLE_SCHEMA, F_TABLE_NAME,"
-                    + " F_GEOMETRY_COLUMN, COORD_DIMENSION, SRID, GEOM_TYPE) VALUES ('"
-                    + fixture.getProperty("database") + "', '" + fixture.getProperty("schema")
-                    + "', 'srid_in_geom', 'geometry', 2, " + srid4326 + ", 'POINT')");
-            run("INSERT INTO \"srid_in_geom\" VALUES(0, 'POINT(0 0)')");
-            run("INSERT INTO \"srid_in_geom\" VALUES(1, 'POINT(1 1)')");
-            run("UPDATE srid_in_geom set geometry.st_srid = 1619");
-
-
-            runSafe("drop table srid_in_geom_no_match");
-            runSafe("DELETE FROM SYSSPATIAL.GEOMETRY_COLUMNS WHERE F_TABLE_NAME = 'srid_in_geom_no_match'");
-
-            run("CREATE TABLE \"srid_in_geom_no_match\"(" //
-                    + "\"id\" PRIMARY KEY not null integer, " //
-                    + "\"geometry\" ST_GEOMETRY)");
-            run("INSERT INTO SYSSPATIAL.GEOMETRY_COLUMNS (F_TABLE_CATALOG, F_TABLE_SCHEMA, F_TABLE_NAME,"
-                    + " F_GEOMETRY_COLUMN, COORD_DIMENSION, SRID, GEOM_TYPE) VALUES ('"
-                    + fixture.getProperty("database") + "', '" + fixture.getProperty("schema")
-                    + "', 'srid_in_geom_no_match', 'geometry', 2, " + srid4326 + ", 'POINT')");
-            run("INSERT INTO \"srid_in_geom_no_match\" VALUES(0, 'POINT(0 0)')");
-            run("INSERT INTO \"srid_in_geom_no_match\" VALUES(1, 'POINT(1 1)')");
-            run("UPDATE srid_in_geom_no_match set geometry.st_srid = 2191");
+            createTable("srid_in_geom", srid4326, srid4326);
+            createTable("srid_in_geom_no_match", srid4326, 2191);
+            createTable("srid_in_meta_only", srid4326, null);
         }
     }
 }
