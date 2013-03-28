@@ -506,9 +506,9 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
 
         LOGGER.log(Level.FINE, "computing active SRID for table: {0}", tableName);
 
-        SRIDInfo metaData = null;
+        Integer metaDataSRID = null;
 
-        StringBuffer sql = new StringBuffer("SELECT ref.SRID, ref.AUTH_SRID FROM ");
+        StringBuffer sql = new StringBuffer("SELECT ref.SRID FROM ");
         encodeTableName(SYSSPATIAL, SPATIAL_REF_SYS, sql);
         sql.append(" as ref, ");
         encodeTableName(SYSSPATIAL, GEOMETRY_COLUMNS, sql);
@@ -531,10 +531,10 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
             ResultSet rs = ps.executeQuery(); 
             try {
                 if (rs.next()) {
-                    metaData = new SRIDInfo(rs.getInt(1), rs.getInt(2));
+                    metaDataSRID = rs.getInt(1);
                 }
                 else {
-                    LOGGER.log(Level.FINE,"No internal EPSG SRID entry for {0}, {1}, {2}",
+                    LOGGER.log(Level.FINE,"No internal SRID entry for {0}, {1}, {2}",
                             new Object[] {schemaName, tableName, columnName});
                 }
             }
@@ -546,53 +546,29 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
             dataStore.closeSafe(ps);
         }
 
-        SRIDInfo geomInfo = resolveGeometrySRID(schemaName, tableName, columnName, cx);
-        SRIDInfo activeInfo = computeActiveSRID(tableName, metaData, geomInfo);
+        Integer geomSRID = resolveGeometrySRID(schemaName, tableName, columnName, cx);
+        Integer active = geomSRID != null ? geomSRID : metaDataSRID;
+        if (metaDataSRID != null && !metaDataSRID.equals(geomSRID)) {
+            LOGGER.warning("declared SRID of " + tableName + ": " + metaDataSRID
+                    + " , does not match that of the geometry inside: " + geomSRID);
+        }
 
-        if (geomInfo == null) {
+        if (geomSRID == null) {
             synchronized (tablesWithoutSRIDInGeometry) {
                 tablesWithoutSRIDInGeometry.add(tableName);
             }
         }
 
-        Integer srid = 0;
-        if (activeInfo != null) {
-            srid = activeInfo.internal != null ? activeInfo.internal : activeInfo.epsg;
-        }
-        String type = srid == activeInfo.internal ? "internal" : "ESPG";
-        LOGGER.log(Level.FINE, "using {0} SRID={1} for table: {1}",
-                new Object[] {type, srid, tableName} );
-        return srid;
-    }
-
-    /**
-     * Compute the SRIDInfo that will be used for the table. Use whatever is
-     * provided but defer to the geometry info if present. Warn if they don't
-     * match but we need to use whatever is declared on the geometry.
-     * @param table
-     * @param metaData
-     * @param geomInfo
-     * @return
-     */
-    static SRIDInfo computeActiveSRID(String table, SRIDInfo metaData, SRIDInfo geomInfo) {
-        SRIDInfo active = geomInfo != null ?  geomInfo : metaData;
-        if (geomInfo != null && metaData != null) {
-            if (geomInfo.internal != null && !geomInfo.internal.equals(metaData.internal)) {
-                LOGGER.warning("declared SRID of " + table + ": " + metaData.internal +
-                        " , does not match that of the geometry inside: " + geomInfo.internal);
-            }
-        }
+        LOGGER.log(Level.FINE, "using internal SRID={0} for table: {1}",
+                new Object[] {active, tableName} );
         return active;
     }
 
     @Override
     public CoordinateReferenceSystem createCRS(int srid, Connection cx)
             throws SQLException {
-        if (srid == 0) {
-            return null;
-        }
-        CoordinateReferenceSystem crs = super.createCRS(srid, cx);
-        if (crs == null) {
+        CoordinateReferenceSystem crs = null;
+        if (srid != 0) {
             StringBuffer sql = new StringBuffer("SELECT AUTH_SRID, SRTEXT FROM ");
             encodeTableName(SYSSPATIAL, SPATIAL_REF_SYS, sql);
             sql.append(" WHERE SRID = ?");
@@ -629,6 +605,7 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
                 }
             }
             if (epsgSrid != -1 && crs == null) {
+                LOGGER.log(Level.INFO, "Falling back to builtin EPSG : " + epsgSrid);
                 try {
                     crs = CRS.decode("EPSG:" + epsgSrid);
                 } catch (FactoryException e) {
@@ -920,6 +897,8 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
                 clearSRID = tablesWithoutSRIDInGeometry.remove(tableName);
             }
             if (clearSRID) {
+                LOGGER.info("Not using internal SRID for geometry "
+                        + att.getLocalName() + " in table " + tableName);
                 att.getUserData().put(JDBCDataStore.JDBC_NATIVE_SRID, null);
             }
 
@@ -929,16 +908,8 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
     /**
      * Sniff the SRID of a geometry in the table.
      */
-    private SRIDInfo resolveGeometrySRID(String schemaName, String tableName, String columnName, Connection cx) throws SQLException {
-        // ideally (and potentially) we could resolve the EPSG code in a single
-        // query but terada does not support a top 1 query in a sub query
-        // though there could be an alternative to:
-        //
-        // select AUTH_SRID from sysspatial.spatial_ref_sys where SRID =
-        // (select top 1 "geom".ST_SRID() from "geotools"."srid_in_geom")
-
+    private Integer resolveGeometrySRID(String schemaName, String tableName, String columnName, Connection cx) throws SQLException {
         Integer geomSRID = null;
-        Integer epsgSRID = null;
         Statement st = cx.createStatement();
         ResultSet rs = null;
         StringBuffer sb = new StringBuffer("select top 1 ");
@@ -955,19 +926,11 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
                     geomSRID = null;
                 }
             }
-            if (geomSRID != null) {
-                sql = "select AUTH_SRID from sysspatial.spatial_ref_sys where AUTH_NAME = 'EPSG' and SRID = " + geomSRID;
-                LOGGER.fine(sql);
-                rs = st.executeQuery(sql);
-                if (rs.next()) {
-                    epsgSRID = rs.getInt(1);
-                }
-            }
         } finally {
             dataStore.closeSafe(rs);
             dataStore.closeSafe(st);
         }
-        return geomSRID == null ? null : new SRIDInfo(geomSRID, epsgSRID);
+        return geomSRID;
     }
     
     public void postCreateTable(String schemaName, SimpleFeatureType featureType, Connection cx) 
@@ -1401,17 +1364,6 @@ public class TeradataDialect extends PreparedStatementSQLDialect {
         installUpdateTrigger(cx, tableName, geomName, indexTableName, primaryKeys);
         installDeleteTrigger(cx, tableName, geomName, indexTableName, primaryKeys);
         LOGGER.info("Installed triggers on " + tableName + " to update " + indexTableName);
-    }
-
-    static final class SRIDInfo {
-        private final Integer internal;
-        private final Integer epsg;
-
-        SRIDInfo(Integer internal, Integer epsg) {
-            this.internal = internal;
-            this.epsg = epsg;
-        }
-
     }
 
 }
