@@ -100,6 +100,7 @@ import org.opengis.referencing.operation.TransformException;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.Point;
+import org.geotools.util.Converter;
 
 
 /**
@@ -1396,9 +1397,17 @@ public final class JDBCDataStore extends ContentDataStore
                     st.setFetchSize(fetchSize);
                     rs = st.executeQuery( sql );
                 }
-             
+                Class resultType = getMapping(rs.getMetaData().getColumnType(1));
+                Class outputType = att == null ? resultType : att.getType().getBinding();
+                final Converter converter = Converters.getConverter( resultType, outputType, null);
+                
                 while(rs.next()) {
                     Object value = rs.getObject(1);
+                    try {
+                        value = converter.convert(value, outputType);
+                    } catch (Exception ex) {
+                        throw new IOException("Error converting " + value + " to " + outputType);
+                    }
                     result = value;
                     results.add(value);
                 }
@@ -2992,7 +3001,7 @@ public final class JDBCDataStore extends ContentDataStore
          *        <LI><B>NUM_PREC_RADIX</B> int => usually 2 or 10
          */
         ResultSet types = metaData.getTypeInfo();
-
+        SQLDialect dialect = getSQLDialect();
         try {
             while (types.next()) {
                 int sqlType = types.getInt("DATA_TYPE");
@@ -3003,7 +3012,7 @@ public final class JDBCDataStore extends ContentDataStore
                     if (sqlTypeNames[i] != null) {
                         continue;
                     }
-
+                    
                     if (sqlType == sqlTypes[i]) {
                         sqlTypeNames[i] = sqlTypeName;
                     }
