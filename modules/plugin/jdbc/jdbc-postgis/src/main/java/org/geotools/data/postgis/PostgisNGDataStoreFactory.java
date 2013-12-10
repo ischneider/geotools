@@ -22,6 +22,7 @@ import java.util.Map;
 import org.geotools.data.DataAccessFactory.Param;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.jdbc.JDBCDataStoreFactory;
+import org.geotools.jdbc.PreparedStatementSQLDialect;
 import org.geotools.jdbc.SQLDialect;
 import org.geotools.util.KVP;
 
@@ -160,6 +161,11 @@ public class PostgisNGDataStoreFactory extends JDBCDataStoreFactory {
         String db = (String) DATABASE.lookUp(params);
         int port = (Integer) PORT.lookUp(params);
         return "jdbc:postgresql" + "://" + host + ":" + port + "/" + db;
+    }
+
+    @Override
+    protected PreparedStatementSQLDialect createPreparedStatementSQLDialect(JDBCDataStore dataStore) {
+        return new PostGISPSDialect(dataStore, (PostGISDialect) createSQLDialect(dataStore));
     }
 
 }

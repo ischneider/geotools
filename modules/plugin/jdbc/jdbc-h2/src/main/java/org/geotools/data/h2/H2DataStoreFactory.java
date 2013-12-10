@@ -26,6 +26,7 @@ import org.apache.commons.dbcp.BasicDataSource;
 import org.geotools.data.jdbc.datasource.DBCPDataSource;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.jdbc.JDBCDataStoreFactory;
+import org.geotools.jdbc.PreparedStatementSQLDialect;
 import org.geotools.jdbc.SQLDialect;
 
 
@@ -187,6 +188,11 @@ public class H2DataStoreFactory extends JDBCDataStoreFactory {
         // no need for this until we are using H2 embedded, there is no
         // network connection that can fail
         return null;
+    }
+
+    @Override
+    protected PreparedStatementSQLDialect createPreparedStatementSQLDialect(JDBCDataStore dataStore) {
+        return new H2DialectPrepared(dataStore);
     }
    
 }

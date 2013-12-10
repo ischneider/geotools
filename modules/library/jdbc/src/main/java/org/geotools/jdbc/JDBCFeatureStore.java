@@ -47,6 +47,10 @@ import org.opengis.feature.type.Name;
 import org.opengis.filter.Filter;
 
 import com.vividsolutions.jts.geom.Geometry;
+import java.sql.Statement;
+import java.util.Iterator;
+import java.util.List;
+import java.util.logging.Level;
 
 
 /**
@@ -325,7 +329,7 @@ public final class JDBCFeatureStore extends ContentFeatureStore {
         }
         return writer;
     }
-    
+
     @Override
     public void modifyFeatures(Name[] names, Object[] values, Filter filter)
             throws IOException {

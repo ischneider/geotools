@@ -20,8 +20,10 @@ import static org.geotools.data.h2.H2DataStoreFactory.*;
 
 import java.io.File;
 import java.util.Map;
+import org.geotools.jdbc.JDBCDataStore;
 
 import org.geotools.jdbc.JDBCJNDIDataStoreFactory;
+import org.geotools.jdbc.PreparedStatementSQLDialect;
 
 /**
  * JNDI DataStoreFactory for H2. 
@@ -56,5 +58,10 @@ public class H2JNDIDataStoreFactory extends JDBCJNDIDataStoreFactory {
     protected void setupParameters(Map parameters) {
         super.setupParameters(parameters);
         parameters.put(ASSOCIATIONS.key, ASSOCIATIONS);
+    }
+
+    @Override
+    protected PreparedStatementSQLDialect createPreparedStatementSQLDialect(JDBCDataStore dataStore) {
+        return new H2DialectPrepared(dataStore);
     }
 }

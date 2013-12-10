@@ -121,6 +121,14 @@ public abstract class JDBCJNDIDataSourceTest extends JDBCTestSupport {
                 // nothing to do here
                 return null;
             }
+
+            @Override
+            protected PreparedStatementSQLDialect createPreparedStatementSQLDialect(JDBCDataStore dataStore) {
+                // nothing to do here
+                return null;
+            }
+
+
         };
         return factory;
     }
@@ -131,6 +139,11 @@ public abstract class JDBCJNDIDataSourceTest extends JDBCTestSupport {
      */
     protected List<String> getBaseJNDIParams() {
         JDBCJNDIDataStoreFactory factory = new JDBCJNDIDataStoreFactory(getBaseFactory()) {
+
+            @Override
+            protected PreparedStatementSQLDialect createPreparedStatementSQLDialect(JDBCDataStore dataStore) {
+                return null;
+            }
             
         };
         return getParamKeys(factory);

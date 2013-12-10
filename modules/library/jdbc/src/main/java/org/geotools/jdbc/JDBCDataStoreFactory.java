@@ -368,6 +368,8 @@ public abstract class JDBCDataStoreFactory extends AbstractDataStoreFactory {
      */
     protected abstract SQLDialect createSQLDialect(JDBCDataStore dataStore);
 
+    protected abstract PreparedStatementSQLDialect createPreparedStatementSQLDialect(JDBCDataStore dataStore);
+
     /**
      * Creates the datasource for the data store.
      * <p>

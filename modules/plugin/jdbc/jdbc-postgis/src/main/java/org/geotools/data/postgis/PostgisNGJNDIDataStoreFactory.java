@@ -20,6 +20,8 @@ import java.util.Map;
 
 import org.geotools.jdbc.JDBCJNDIDataStoreFactory;
 import static org.geotools.data.postgis.PostgisNGDataStoreFactory.*;
+import org.geotools.jdbc.JDBCDataStore;
+import org.geotools.jdbc.PreparedStatementSQLDialect;
 
 /**
  * JNDI DataStoreFactory  for Postgis database.
@@ -45,5 +47,10 @@ public class PostgisNGJNDIDataStoreFactory extends JDBCJNDIDataStoreFactory {
         parameters.put(ESTIMATED_EXTENTS.key, ESTIMATED_EXTENTS);
         parameters.put(PREPARED_STATEMENTS.key, PREPARED_STATEMENTS);
         parameters.put(ENCODE_FUNCTIONS.key, ENCODE_FUNCTIONS);
+    }
+
+    @Override
+    protected PreparedStatementSQLDialect createPreparedStatementSQLDialect(JDBCDataStore dataStore) {
+        return new PostGISPSDialect(dataStore, (PostGISDialect) createSQLDialect(dataStore));
     }
 }
