@@ -20,6 +20,7 @@ import java.awt.Color;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -51,6 +52,7 @@ import org.opengis.filter.expression.Expression;
 import org.opengis.filter.expression.Function;
 import org.opengis.filter.expression.Literal;
 import org.opengis.filter.expression.PropertyName;
+import org.opengis.metadata.citation.OnLineResource;
 import org.opengis.referencing.ReferenceIdentifier;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.style.ContrastMethod;
@@ -649,14 +651,31 @@ public class SLDTransformer extends TransformerBase {
         public void visit(ExternalGraphic exgr) {
             start("ExternalGraphic");
 
-            AttributesImpl atts = new AttributesImpl();
+            OnLineResource resource = null;
             try {
-            	atts.addAttribute(XMLNS_NAMESPACE, "xlink", "xmlns:xlink", "", XLINK_NAMESPACE);
-                atts.addAttribute(XLINK_NAMESPACE, "type", "xlink:type", "", "simple");
-                atts.addAttribute(XLINK_NAMESPACE, "xlink", "xlink:href","", exgr.getLocation().toString());
-            } catch (java.net.MalformedURLException e) {
-                throw new Error("Failed to encode the xlink location", e);
+                resource = exgr.getOnlineResource();
+            } catch (IllegalArgumentException iae) {
+                // bah - ExternalGraphicImpl is horrible and might throw on relative URI
+                if (! (iae.getCause() instanceof URISyntaxException)) {
+                    throw iae;
+                }
             }
+            String uri;
+            if (resource != null) {
+                uri = resource.getLinkage().toString();
+            } else {
+                try {
+                    uri = exgr.getLocation().toString();
+                } catch (java.net.MalformedURLException e) {
+                    throw new Error("Failed to encode the xlink location", e);
+                }
+            }
+
+            AttributesImpl atts = new AttributesImpl();
+            atts.addAttribute(XMLNS_NAMESPACE, "xlink", "xmlns:xlink", "", XLINK_NAMESPACE);
+            atts.addAttribute(XLINK_NAMESPACE, "type", "xlink:type", "", "simple");
+            atts.addAttribute(XLINK_NAMESPACE, "xlink", "xlink:href", "", uri);
+
             element("OnlineResource", (String) null, atts);
 
             element("Format", exgr.getFormat());

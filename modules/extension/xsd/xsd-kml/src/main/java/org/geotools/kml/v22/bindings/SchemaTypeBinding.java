@@ -7,6 +7,9 @@ import javax.xml.namespace.QName;
 import org.geotools.feature.NameImpl;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.geometry.jts.Geometries;
+import org.geotools.kml.KMLOptions;
+import org.geotools.kml.bindings.FeatureTypeBinding;
+import static org.geotools.kml.bindings.FeatureTypeBinding.FeatureTypeStyleURI;
 import org.geotools.kml.v22.KML;
 import org.geotools.kml.v22.SchemaRegistry;
 import org.geotools.xml.AbstractComplexBinding;
@@ -43,9 +46,11 @@ import org.opengis.feature.type.Schema;
 public class SchemaTypeBinding extends AbstractComplexBinding {
 
     private SchemaRegistry schemaRegistry;
+    private KMLOptions config;
 
-    public SchemaTypeBinding(SchemaRegistry schemaRegistry) {
+    public SchemaTypeBinding(SchemaRegistry schemaRegistry, KMLOptions config) {
         this.schemaRegistry = schemaRegistry;
+        this.config = config;
     }
 
     /**
@@ -87,8 +92,21 @@ public class SchemaTypeBinding extends AbstractComplexBinding {
         else {
             featureTypeName = "feature";
         }
+        
+        // old style Schema's had a parent attribute
+        // http://code.google.com/p/libkml/wiki/ParsingOldSchemaFiles
+        SimpleFeatureType parent = null;
+        // we're only dealing with Placemark as parent
+        // what happens if the parent is something else???
+        // this is not even documented in KML
+        if ("Placemark".equals(node.getAttributeValue("parent"))) {
+            parent = config.isOnlyCollectStyles() ? FeatureTypeBinding.FeatureTypeStyleURI : FeatureTypeBinding.FeatureType;
+        }
 
         SimpleFeatureTypeBuilder tb = new SimpleFeatureTypeBuilder();
+        if (parent != null) {
+            tb.init(parent);
+        }
         tb.setName(featureTypeName);
         //TODO: crs
 

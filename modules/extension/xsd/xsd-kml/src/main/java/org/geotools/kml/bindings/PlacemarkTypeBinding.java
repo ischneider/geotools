@@ -29,6 +29,8 @@ import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 
 import com.vividsolutions.jts.geom.Geometry;
+import java.util.Arrays;
+import java.util.List;
 
 
 /**
@@ -105,8 +107,24 @@ public class PlacemarkTypeBinding extends AbstractComplexBinding {
         b.init(feature);
 
         //&lt;element minOccurs="0" ref="kml:Geometry"/&gt;
-        b.set("Geometry", node.getChildValue(Geometry.class));
-
+        // Because we're mapping LookAt and Region to be a Geometry, too, we
+        // need to ignore these
+        List children = node.getChildren(Geometry.class);
+        Node geometry = null;
+        List<String> ignoreChildrenGeometry = Arrays.asList("LookAt","Region");
+        for (int i = 0; i < children.size(); i++) {
+            Node child = (Node) children.get(i);
+            if (ignoreChildrenGeometry.contains(child.getComponent().getName())) {
+                continue;
+            }
+            if (geometry != null) {
+                throw new RuntimeException("ambiguity");
+            }
+            geometry = child;
+        }
+        if (geometry != null) {
+            b.set("Geometry", geometry.getValue());
+        }
         return b.buildFeature(feature.getID());
     }
     

@@ -1,8 +1,14 @@
 package org.geotools.kml.v22;
 
+import com.vividsolutions.jts.geom.Geometry;
+import com.vividsolutions.jts.geom.LineString;
 import java.util.List;
 import java.util.Map;
-
+import static junit.framework.TestCase.assertEquals;
+import org.geotools.kml.NetworkLink;
+import org.geotools.styling.FeatureTypeStyle;
+import org.geotools.styling.PointSymbolizer;
+import org.geotools.styling.Symbolizer;
 import org.geotools.xml.Parser;
 import org.geotools.xml.PullParser;
 import org.geotools.xml.StreamingParser;
@@ -10,21 +16,33 @@ import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 
 import com.vividsolutions.jts.geom.Point;
+import com.vividsolutions.jts.geom.Polygon;
+import java.net.URI;
 
 public class KMLParsingTest extends KMLTestSupport {
 
-    public void testParseDocument() throws Exception {
-        SimpleFeature doc = parseSamples();
+    // lazily parse this and cache - makes debugging annoying if statically parsed
+    static SimpleFeature doc;
+    static SimpleFeature doc() {
+        if (doc == null) {
+            try {
+                doc = new KMLParsingTest().parseSamples();
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+        return doc;
+    }
 
-        assertNotNull(doc);
+    public void testParseDocument() throws Exception {
+        assertNotNull(doc());
         assertEquals("document", doc.getType().getTypeName());
         assertEquals("KML Samples", doc.getAttribute("name"));
         assertEquals(6, ((List)doc.getAttribute("Feature")).size());
     }
 
     public void testParseFolder() throws Exception {
-        SimpleFeature doc = parseSamples();
-        SimpleFeature folder = (SimpleFeature) ((List)doc.getAttribute("Feature")).get(0); 
+        SimpleFeature folder = (SimpleFeature) ((List)doc().getAttribute("Feature")).get(0);
 
         assertEquals("Placemarks", folder.getAttribute("name"));
         assertTrue(folder.getAttribute("description").toString().startsWith("These are just some"));
@@ -32,8 +50,7 @@ public class KMLParsingTest extends KMLTestSupport {
     }
 
     public void testParsePlacemark() throws Exception {
-        SimpleFeature doc = parseSamples();
-        SimpleFeature folder = (SimpleFeature) ((List)doc.getAttribute("Feature")).get(0); 
+        SimpleFeature folder = (SimpleFeature) ((List)doc().getAttribute("Feature")).get(0);
         SimpleFeature placemark = (SimpleFeature) ((List)folder.getAttribute("Feature")).get(0);
         
         assertEquals("Simple placemark", placemark.getAttribute("name"));
@@ -48,7 +65,7 @@ public class KMLParsingTest extends KMLTestSupport {
     }
 
     public void testStreamParse() throws Exception {
-        StreamingParser p = new StreamingParser(createConfiguration(), 
+        StreamingParser p = new StreamingParser(createConfiguration(),
             getClass().getResourceAsStream("KML_Samples.kml"), KML.Placemark);
         int count = 0;
         while(p.parse() != null) {
@@ -58,14 +75,50 @@ public class KMLParsingTest extends KMLTestSupport {
     }
 
     public void testPullParse() throws Exception {
-        PullParser p = new PullParser(createConfiguration(),
+        KMLConfiguration config = new KMLConfiguration();
+        PullParser p = new PullParser(config,
             getClass().getResourceAsStream("KML_Samples.kml"), KML.Placemark);
      
         int count = 0;
-        while(p.parse() != null) {
+        SimpleFeature parsed;
+        // previously only counting features missed some errors like LookAt
+        // and region mistakenly being taken as the geometry
+        Object[] checks = new Object[]{
+            "Simple placemark", Point.class, 1,
+            "Floating placemark", Point.class, 1,
+            "Extruded placemark", Point.class, 1,
+            "Roll over this icon", Point.class, 1,
+            "Descriptive HTML", null, 0,
+            "Tessellated", LineString.class, 2,
+            "Untessellated", LineString.class, 2,
+            "Absolute", LineString.class, 11,
+            "Absolute Extruded", LineString.class, 11,
+            "Relative", LineString.class, 11,
+            "Relative Extruded", LineString.class, 11,
+            "Building 40", Polygon.class, 22,
+            "Building 41", Polygon.class, 19,
+            "Building 42", Polygon.class, 24,
+            "Building 43", Polygon.class, 25,
+            "The Pentagon", Polygon.class, 12,
+            "Absolute", Polygon.class, 5,
+            "Absolute Extruded", Polygon.class, 5,
+            "Relative", Polygon.class, 9,
+            "Relative Extruded", Polygon.class, 9,};
+        while( (parsed = (SimpleFeature) p.parse()) != null) {
+            int idx = count * 3;
+            Object name = parsed.getAttribute("name");
+            Object geom = parsed.getAttribute("Geometry");
+            assertEquals(checks[idx], name);
+            assertEquals(checks[idx + 1], geom == null ? null : geom.getClass());
+            assertEquals(checks[idx + 2], geom == null ? 0 : ((Geometry) geom).getCoordinates().length);
             count++;
         }
         assertEquals(20, count);
+
+        // verify the stylemap alias works
+        FeatureTypeStyle style = config.getStyleMap().get(new URI("#exampleStyleMap"));
+        assertNotNull(style);
+        assertTrue(style == config.getStyleMap().get(new URI("#normalPlacemark")));
     }
 
     public void testPullParseOrHandler() throws Exception {
@@ -166,13 +219,22 @@ public class KMLParsingTest extends KMLTestSupport {
                     "      <coordinates>-121.998,37.0078</coordinates>     "+
                     "    </Point>   "+
                     "  </Placemark>   "+
+                    "  <!-- old style schema -->"+
+                    "  <TrailHeadType>"+
+                    "    <TrailHeadName>Flatty Flats</TrailHeadName>"+
+                    "    <TrailLength>1</TrailLength>         "+
+                    "    <ElevationGain>0</ElevationGain>       "+
+                    "    <Point>       "+
+                    "      <coordinates>1,1</coordinates>     "+
+                    "    </Point>   "+
+                    "  </TrailHeadType>"+
                     "</Document> "+
                 "</kml>";
         buildDocument(xml);
 
         SimpleFeature doc = (SimpleFeature)parse();
         List<SimpleFeature> features = (List<SimpleFeature>) doc.getAttribute("Feature");
-        assertEquals(2, features.size());
+        assertEquals(3, features.size());
 
         SimpleFeature f = features.get(0);
         assertEquals("Pi in the sky", f.getAttribute("TrailHeadName"));
@@ -183,6 +245,52 @@ public class KMLParsingTest extends KMLTestSupport {
         assertEquals(String.class, t.getDescriptor("TrailHeadName").getType().getBinding());
         assertEquals(Double.class, t.getDescriptor("TrailLength").getType().getBinding());
         assertEquals(Integer.class, t.getDescriptor("ElevationGain").getType().getBinding());
+
+        f = features.get(2);
+        assertEquals("Flatty Flats", f.getAttribute("TrailHeadName"));
+        assertEquals(1.0, f.getAttribute("TrailLength"));
+        assertEquals(0, f.getAttribute("ElevationGain"));
+        // verify it inherits Style
+        assertTrue(f.getFeatureType().getDescriptor("Style") != null);
+    }
+
+    public void testIconStyle() throws Exception {
+        String xml = "<Style>" + "<IconStyle>" + "<Icon>" + "<href>uri</href>" + "</Icon>" + "</IconStyle>" + "</Style>";
+
+        buildDocument(xml);
+
+        FeatureTypeStyle style = (FeatureTypeStyle) parse();
+        assertNull(style.getName());
+        Symbolizer[] syms = style.rules().get(0).getSymbolizers();
+
+        assertEquals(1, syms.length);
+        PointSymbolizer p = (PointSymbolizer) syms[0];
+        String uri = p.getGraphic().getExternalGraphics()[0].getOnlineResource().getLinkage().toString();
+        assertEquals("uri", uri);
+    }
+    
+    public void testEmbeddedIconStyle() throws Exception {
+        String xml = "<Placemark>" + "<Style>" + "<IconStyle>" + "<Icon>" + "<href>uri</href>" + "</Icon>" + "</IconStyle>" + "</Style>" + "</Placemark>";
+        
+        buildDocument(xml);
+        
+        SimpleFeature sf = (SimpleFeature) parse();
+
+        FeatureTypeStyle style = (FeatureTypeStyle) sf.getAttribute("Style");
+
+        // it shouldn't have a name
+        assertNull(style.getName());
+        // @todo verify registered in StyleMap from configuration
+    }
+
+    public void testNetworkLink() throws Exception {
+        String xml = "<NetworkLink>" + "<Link>" + "<href>uri</href>" + "</Link>" + "</NetworkLink>";
+
+        buildDocument(xml);
+
+        NetworkLink link = (NetworkLink) parse();
+
+        assertEquals(link.getHref(), "uri");
     }
 
     SimpleFeature parseSamples() throws Exception {

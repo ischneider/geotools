@@ -98,15 +98,16 @@ public class StyleTypeBinding extends AbstractComplexBinding {
         Symbolizer[] syms = (Symbolizer[]) l.toArray(new Symbolizer[l.size()]);
 
         FeatureTypeStyle style = sb.createFeatureTypeStyle(syms, 1.0, 1.0);
+        String id = null;
+        if (node.hasAttribute("id")) {
+            id = (String) node.getAttributeValue("id");
+        }
+        style.setName(id); // seems like the default is 'name', so ensure this gets nulled
 
         //if the style has an id, throw it in to the style cache
-        if (node.hasAttribute("id")) {
-            String id = (String) node.getAttributeValue("id");
-
+        if (id != null) {
             //create a uri with just a fragment
-            URI uri = new URI("#" + id);
-
-            styleMap.put(uri, style);
+            styleMap.put(new URI("#" + id), style);
         }
 
         return style;
