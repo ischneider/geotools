@@ -51,7 +51,6 @@ import org.geotools.kml.bindings.StyleTypeBinding;
 import org.geotools.kml.v22.SchemaRegistry;
 import org.geotools.styling.StyleBuilder;
 import org.geotools.styling.StyleFactory;
-import org.geotools.xml.Configuration;
 
 
 /**
@@ -63,7 +62,7 @@ import org.geotools.xml.Configuration;
  *
  * @source $URL$
  */
-public class KMLConfiguration extends Configuration {
+public class KMLConfiguration extends KMLOptions {
     /**
      * Creates a new configuration.
      *

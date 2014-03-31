@@ -40,6 +40,7 @@ import org.opengis.feature.type.AttributeDescriptor;
 
 import com.vividsolutions.jts.geom.LinearRing;
 import com.vividsolutions.jts.geom.Point;
+import org.geotools.kml.KMLOptions;
 
 
 /**
@@ -84,14 +85,17 @@ public class FeatureTypeBinding extends AbstractComplexBinding {
     /**
      * base feature type for kml features, used when no Schema element is specified
      */
-    protected static final SimpleFeatureType FeatureType;
+    public static final SimpleFeatureType FeatureType;
+    public static final SimpleFeatureType FeatureTypeStyleURI;
 
     StyleMap styleMap;
     private final FolderStack folderStack;
     private SchemaRegistry schemaRegistry;
+    private final KMLOptions config;
 
     static {
         SimpleFeatureTypeBuilder tb = new SimpleFeatureTypeBuilder();
+        tb.setSRS("EPSG:4326");
         tb.setNamespaceURI(KML.NAMESPACE);
         tb.setName("feature");
 
@@ -121,13 +125,19 @@ public class FeatureTypeBinding extends AbstractComplexBinding {
         tb.add("Region", LinearRing.class);
 
         FeatureType = tb.buildFeatureType();
+
+        tb.init(FeatureType);
+        tb.remove("Style");
+        tb.add("Style", URI.class);
+        FeatureTypeStyleURI = tb.buildFeatureType();
     }
 
     public FeatureTypeBinding(StyleMap styleMap, FolderStack folderStack,
-            SchemaRegistry schemaRegistry) {
+            SchemaRegistry schemaRegistry, KMLOptions config) {
         this.styleMap = styleMap;
         this.folderStack = folderStack;
         this.schemaRegistry = schemaRegistry;
+        this.config = config;
     }
 
     /**
@@ -172,7 +182,8 @@ public class FeatureTypeBinding extends AbstractComplexBinding {
         throws Exception {
 
         // start off with the default feature type, and retype as necessary
-        SimpleFeatureType featureType = FeatureType;
+        SimpleFeatureType baseFeatureType = config.isOnlyCollectStyles() ? FeatureTypeStyleURI : FeatureType;
+        SimpleFeatureType featureType = baseFeatureType;
 
         // retype based on schema if we have extended data pointing to a url
         @SuppressWarnings("unchecked")
@@ -225,10 +236,29 @@ public class FeatureTypeBinding extends AbstractComplexBinding {
         //&lt;element minOccurs="0" ref="kml:styleUrl"/&gt;
         URI uri = (URI) node.getChildValue("styleUrl");
 
-        if (uri != null) {
-            //load the style from the style map
+        // there could be an inline style
+        FeatureTypeStyle style = (FeatureTypeStyle) node.getChildValue("Style");
+        if (style == null) {
+            if (uri != null) {
+                style = styleMap.get(uri);
+            }
+        } else {
+            // if this node is the document, compute the URI from the id
+            if (uri == null) {
+                String id = (String) node.getChild("Style").getAttributeValue("id");
+                if (id != null) {
+                    uri = new URI("#" + id);
+                }
+            }
+            // if uri is still null, this will register an anonymous inline style with a generated URI
+            uri = styleMap.put(uri, style);
+        }
+
+        if (config.isOnlyCollectStyles()) {
+            b.set("Style", uri);
+        } else if (style != null) {
             //TODO: use a proxy to do forward referencing
-            b.set("Style", styleMap.get(uri));
+            b.set("Style", style);
         }
 
         //&lt;element maxOccurs="unbounded" minOccurs="0" ref="kml:StyleSelector"/&gt;
@@ -253,12 +283,15 @@ public class FeatureTypeBinding extends AbstractComplexBinding {
 
         // if we are a custom schema type
         // add in any attributes from that type onto the feature
+        // that aren't already in the baseFeatureType, as this has been done above
         if (customFeatureType != null) {
             for (AttributeDescriptor ad : customFeatureType.getAttributeDescriptors()) {
                 String attrName = ad.getLocalName();
-                Object childValue = node.getChildValue(attrName);
-                if (childValue != null) {
-                    b.set(attrName, childValue);
+                if (baseFeatureType.getDescriptor(attrName) == null) {
+                    Object childValue = node.getChildValue(attrName);
+                    if (childValue != null) {
+                        b.set(attrName, childValue);
+                    }
                 }
             }
         }
@@ -303,8 +336,12 @@ public class FeatureTypeBinding extends AbstractComplexBinding {
 	      
 	        if ( KML.styleUrl.equals( name ) )  {
 	            URI uri = (URI) feature.getAttribute( "Style" );
-	            if ( uri != null ) {
-	                return styleMap.get( uri );
+	            if ( uri != null) {
+                    if (config.isOnlyCollectStyles()) {
+                        return uri;
+                    } else {
+                        return styleMap.get( uri );
+                    }
 	            }
 	        }
 	        

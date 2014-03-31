@@ -90,10 +90,20 @@ public class LabelStyleTypeBinding extends AbstractComplexBinding {
     public Object parse(ElementInstance instance, Node node, Object value)
         throws Exception {
         Color color = (Color) value;
+        Double scale = (Double) node.getChildValue("scale");
 
-        TextSymbolizer textSymbolizer = sb.createTextSymbolizer();
-        textSymbolizer.setFill(sb.createFill(color));
-
+        TextSymbolizer textSymbolizer = null;
+        // if alpha is zero or scale is zero, just don't parse this
+        if (color.getAlpha() > 0 && (scale == null || scale > 0)) {
+            textSymbolizer= sb.createTextSymbolizer();
+            double size = 16; // google earth approx initial font size at 100% scale
+            if (scale != null) {
+                size = size * scale;
+            }
+            textSymbolizer.getFont().setFontSize(sb.literalExpression(size));
+            textSymbolizer.setFill(sb.createFill(color, color.getAlpha() / 255.));
+            textSymbolizer.setLabel(sb.getFilterFactory().property("name"));
+        }
         return textSymbolizer;
     }
 }

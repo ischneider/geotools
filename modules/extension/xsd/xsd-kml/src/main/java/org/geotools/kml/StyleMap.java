@@ -17,8 +17,11 @@
 package org.geotools.kml;
 
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import org.geotools.styling.FeatureTypeStyle;
 
@@ -36,11 +39,49 @@ import org.geotools.styling.FeatureTypeStyle;
 public class StyleMap {
     protected Map map = Collections.synchronizedMap(new HashMap());
 
-    public void put(URI uri, FeatureTypeStyle style) {
+    private Map<URI,URI> aliases = new HashMap<URI,URI>();
+    /**
+     * Add a style. According to KML, duplicate id's may be added but last in,
+     * last out.
+     * @param uri may be null, one will be generated
+     * @param style non-null style
+     * @return the URI used. if generated, this is useful
+     */
+    public URI put(URI uri, FeatureTypeStyle style) {
+        if (uri == null) {
+            int id = map.size() + 1;
+            try {
+                uri = new URI("#unamed-" + id);
+            } catch (URISyntaxException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
         map.put(uri, style);
+        return uri;
     }
 
     public FeatureTypeStyle get(URI uri) {
+        URI aliased = aliases.get(uri);
+        if (aliased != null) {
+            uri = aliased;
+        }
         return (FeatureTypeStyle) map.get(uri);
     }
+
+    public Collection<URI> keys() {
+        HashSet<URI> keys = new HashSet<URI>(map.keySet());
+        keys.addAll(aliases.keySet());
+        return keys;
+    }
+
+    /**
+     * Alias a style uri to another (original). This allows mapping a StyleMap
+     * id to it's 'normal' style since we cannot really support rollover.
+     * @param string
+     * @param uri
+     */
+    public void alias(URI alias, URI original) {
+        aliases.put(alias, original);
+    }
+
 }

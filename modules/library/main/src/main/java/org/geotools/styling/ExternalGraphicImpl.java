@@ -221,11 +221,17 @@ public class ExternalGraphicImpl implements ExternalGraphic, Symbol, Cloneable {
     public OnLineResource getOnlineResource() {
         if(online == null) {
             OnLineResourceImpl impl = new OnLineResourceImpl();
+            URI link = null;
             try {
-                impl.setLinkage(new URI(uri));
+                if (uri != null) {
+                    link = new URI(uri);
+                } else {
+                    link = location.toURI();
+                }
             } catch (URISyntaxException e) {
                 throw new IllegalArgumentException(e);
             }
+            impl.setLinkage(link);
             online = impl;
         }
         return online;
