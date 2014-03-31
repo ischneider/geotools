@@ -17,7 +17,6 @@
 package org.geotools.kml.bindings;
 
 import javax.xml.namespace.QName;
-import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.CoordinateSequence;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LineString;

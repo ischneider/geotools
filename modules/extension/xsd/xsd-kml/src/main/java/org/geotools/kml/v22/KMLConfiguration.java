@@ -14,39 +14,46 @@ import org.geotools.kml.bindings.FeatureTypeBinding;
 import org.geotools.kml.bindings.FolderBinding;
 import org.geotools.kml.bindings.FolderTypeBinding;
 import org.geotools.kml.bindings.GeometryTypeBinding;
+import org.geotools.kml.bindings.IconStyleTypeBinding;
 import org.geotools.kml.bindings.KmlTypeBinding;
 import org.geotools.kml.bindings.LabelStyleTypeBinding;
 import org.geotools.kml.bindings.LatLonBoxTypeBinding;
 import org.geotools.kml.bindings.LineStringTypeBinding;
+import org.geotools.kml.bindings.LineStyleTypeBinding;
 import org.geotools.kml.bindings.LinearRingTypeBinding;
 import org.geotools.kml.bindings.LocationTypeBinding;
 import org.geotools.kml.bindings.LookAtTypeBinding;
 import org.geotools.kml.bindings.MetadataTypeBinding;
 import org.geotools.kml.bindings.MultiGeometryTypeBinding;
 import org.geotools.kml.bindings.NameBinding;
+import org.geotools.kml.bindings.NetworkLinkTypeBinding;
 import org.geotools.kml.bindings.ObjectTypeBinding;
 import org.geotools.kml.bindings.PlacemarkTypeBinding;
 import org.geotools.kml.bindings.PointTypeBinding;
+import org.geotools.kml.bindings.PolyStyleTypeBinding;
 import org.geotools.kml.bindings.PolygonTypeBinding;
 import org.geotools.kml.bindings.RegionTypeBinding;
+import org.geotools.kml.bindings.StyleMapTypeBinding;
 import org.geotools.kml.bindings.StyleTypeBinding;
 import org.geotools.kml.v22.bindings.ExtendedDataTypeBinding;
 import org.geotools.kml.v22.bindings.SchemaDataTypeBinding;
 import org.geotools.kml.v22.bindings.SchemaTypeBinding;
 import org.geotools.styling.StyleBuilder;
 import org.geotools.styling.StyleFactory;
-import org.geotools.xml.Configuration;
 import org.picocontainer.MutablePicoContainer;
 
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequenceFactory;
+import org.geotools.kml.KMLOptions;
 
 /**
  * Parser configuration for the http://www.opengis.net/kml/2.2 schema.
  *
  * @generated
  */
-public class KMLConfiguration extends Configuration {
+public class KMLConfiguration extends KMLOptions {
+
+    private StyleMap styleMap;
 
     /**
      * Creates a new configuration.
@@ -59,6 +66,10 @@ public class KMLConfiguration extends Configuration {
        //TODO: add dependencies here
     }
 
+    public StyleMap getStyleMap() {
+        return styleMap;
+    }
+
     @Override
     protected void configureContext(MutablePicoContainer container) {
         StyleFactory styleFactory = CommonFactoryFinder.getStyleFactory(null);
@@ -68,7 +79,7 @@ public class KMLConfiguration extends Configuration {
         container.registerComponentInstance(styleBuilder);
         container.registerComponentInstance(new GeometryFactory());
         container.registerComponentInstance(CoordinateArraySequenceFactory.instance());
-        container.registerComponentInstance(new StyleMap());
+        container.registerComponentInstance(styleMap = new StyleMap());
         container.registerComponentInstance(new FolderStack());
         SchemaRegistry schemaRegistry = new SchemaRegistry();
         KMLCustomSchemaHandlerFactory handlerFactory = new KMLCustomSchemaHandlerFactory(
@@ -104,7 +115,6 @@ public class KMLConfiguration extends Configuration {
 //        container.registerComponentImplementation(KML.anglepos180Type,Anglepos180TypeBinding.class);
 //        container.registerComponentImplementation(KML.anglepos90Type,Anglepos90TypeBinding.class);
 //        container.registerComponentImplementation(KML.BalloonStyleType,BalloonStyleTypeBinding.class);
-//        container.registerComponentImplementation(KML.BasicLinkType,BasicLinkTypeBinding.class);
         container.registerComponentImplementation(KML.BoundaryType,BoundaryTypeBinding.class);
 //        container.registerComponentImplementation(KML.CameraType,CameraTypeBinding.class);
 //        container.registerComponentImplementation(KML.ChangeType,ChangeTypeBinding.class);
@@ -122,7 +132,7 @@ public class KMLConfiguration extends Configuration {
         container.registerComponentImplementation(KML.Folder,FolderBinding.class);
 //        container.registerComponentImplementation(KML.gridOriginEnumType,GridOriginEnumTypeBinding.class);
 //        container.registerComponentImplementation(KML.GroundOverlayType,GroundOverlayTypeBinding.class);
-//        container.registerComponentImplementation(KML.IconStyleType,IconStyleTypeBinding.class);
+        container.registerComponentImplementation(KML.IconStyleType,IconStyleTypeBinding.class);
 //        container.registerComponentImplementation(KML.ImagePyramidType,ImagePyramidTypeBinding.class);
 //        container.registerComponentImplementation(KML.itemIconStateEnumType,ItemIconStateEnumTypeBinding.class);
 //        container.registerComponentImplementation(KML.itemIconStateType,ItemIconStateTypeBinding.class);
@@ -133,7 +143,7 @@ public class KMLConfiguration extends Configuration {
         container.registerComponentImplementation(KML.LatLonBoxType,LatLonBoxTypeBinding.class);
         container.registerComponentImplementation(KML.LinearRingType,LinearRingTypeBinding.class);
         container.registerComponentImplementation(KML.LineStringType,LineStringTypeBinding.class);
-//        container.registerComponentImplementation(KML.LineStyleType,LineStyleTypeBinding.class);
+        container.registerComponentImplementation(KML.LineStyleType,LineStyleTypeBinding.class);
 //        container.registerComponentImplementation(KML.LinkType,LinkTypeBinding.class);
 //        container.registerComponentImplementation(KML.listItemTypeEnumType,ListItemTypeEnumTypeBinding.class);
 //        container.registerComponentImplementation(KML.ListStyleType,ListStyleTypeBinding.class);
@@ -144,14 +154,14 @@ public class KMLConfiguration extends Configuration {
 //        container.registerComponentImplementation(KML.ModelType,ModelTypeBinding.class);
         container.registerComponentImplementation(KML.MultiGeometryType,MultiGeometryTypeBinding.class);
 //        container.registerComponentImplementation(KML.NetworkLinkControlType,NetworkLinkControlTypeBinding.class);
-//        container.registerComponentImplementation(KML.NetworkLinkType,NetworkLinkTypeBinding.class);
+        container.registerComponentImplementation(KML.NetworkLinkType,NetworkLinkTypeBinding.class);
 //        container.registerComponentImplementation(KML.OrientationType,OrientationTypeBinding.class);
 //        container.registerComponentImplementation(KML.PairType,PairTypeBinding.class);
 //        container.registerComponentImplementation(KML.PhotoOverlayType,PhotoOverlayTypeBinding.class);
         container.registerComponentImplementation(KML.PlacemarkType,PlacemarkTypeBinding.class);
         container.registerComponentImplementation(KML.PointType,PointTypeBinding.class);
         container.registerComponentImplementation(KML.PolygonType,PolygonTypeBinding.class);
-//        container.registerComponentImplementation(KML.PolyStyleType,PolyStyleTypeBinding.class);
+        container.registerComponentImplementation(KML.PolyStyleType,PolyStyleTypeBinding.class);
 //        container.registerComponentImplementation(KML.refreshModeEnumType,RefreshModeEnumTypeBinding.class);
         container.registerComponentImplementation(KML.RegionType,RegionTypeBinding.class);
 //        container.registerComponentImplementation(KML.ResourceMapType,ResourceMapTypeBinding.class);
@@ -163,7 +173,7 @@ public class KMLConfiguration extends Configuration {
 //        container.registerComponentImplementation(KML.SimpleDataType,SimpleDataTypeBinding.class);
 //        container.registerComponentImplementation(KML.SimpleFieldType,SimpleFieldTypeBinding.class);
 //        container.registerComponentImplementation(KML.SnippetType,SnippetTypeBinding.class);
-//        container.registerComponentImplementation(KML.StyleMapType,StyleMapTypeBinding.class);
+        container.registerComponentImplementation(KML.StyleMapType,StyleMapTypeBinding.class);
 //        container.registerComponentImplementation(KML.styleStateEnumType,StyleStateEnumTypeBinding.class);
         container.registerComponentImplementation(KML.StyleType,StyleTypeBinding.class);
 //        container.registerComponentImplementation(KML.TimeSpanType,TimeSpanTypeBinding.class);

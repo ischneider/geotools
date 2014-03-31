@@ -90,8 +90,8 @@ public class LineStyleTypeBinding extends AbstractComplexBinding {
     public Object parse(ElementInstance instance, Node node, Object value)
         throws Exception {
         Color color = (Color) value;
-        Float width = (Float) node.getChildValue("width", Float.valueOf(1f));
+        Number width = (Number) node.getChildValue("width", Float.valueOf(1f));
 
-        return sb.createLineSymbolizer(color, width);
+        return sb.createLineSymbolizer(color, width.doubleValue());
     }
 }
