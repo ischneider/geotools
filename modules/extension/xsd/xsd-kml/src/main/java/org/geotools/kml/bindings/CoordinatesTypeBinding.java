@@ -24,7 +24,9 @@ import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.CoordinateSequence;
 import com.vividsolutions.jts.geom.CoordinateSequenceFactory;
 
+import java.util.NoSuchElementException;
 import org.geotools.kml.KML;
+import org.geotools.kml.ParseWarnings;
 import org.geotools.xml.AbstractSimpleBinding;
 import org.geotools.xml.InstanceComponent;
 
@@ -50,10 +52,12 @@ import org.geotools.xml.InstanceComponent;
  * @source $URL$
  */
 public class CoordinatesTypeBinding extends AbstractSimpleBinding {
+    ParseWarnings warnings;
     CoordinateSequenceFactory csFactory;
     
-    public CoordinatesTypeBinding( CoordinateSequenceFactory csFactory ) {
+    public CoordinatesTypeBinding( CoordinateSequenceFactory csFactory, ParseWarnings warnings ) {
         this.csFactory = csFactory;
+        this.warnings = warnings;
     }
     
     /**
@@ -94,8 +98,13 @@ public class CoordinatesTypeBinding extends AbstractSimpleBinding {
             StringTokenizer st = new StringTokenizer((String) l.next(), ",");
             Coordinate c = new Coordinate();
 
-            c.x = Double.parseDouble(st.nextToken());
-            c.y = Double.parseDouble(st.nextToken());
+            try {
+                c.x = Double.parseDouble(st.nextToken());
+                c.y = Double.parseDouble(st.nextToken());
+            } catch (NoSuchElementException nsee) {
+                warnings.addWarning("Invalid number of coordinates", nsee);
+                return null;
+            }
 
             if (st.hasMoreTokens()) {
                 c.z = Double.parseDouble(st.nextToken());

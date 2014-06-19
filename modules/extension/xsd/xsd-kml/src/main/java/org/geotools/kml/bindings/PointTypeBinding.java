@@ -86,10 +86,14 @@ public class PointTypeBinding extends AbstractComplexBinding {
      */
     public Object parse(ElementInstance instance, Node node, Object value)
         throws Exception {
-        CoordinateSequence coordinates = 
-            (CoordinateSequence) node.getChildValue(KML.coordinates.getLocalPart());
+        Object childValue = node.getChildValue(KML.coordinates.getLocalPart());
+        if (childValue instanceof CoordinateSequence) {
+            CoordinateSequence coordinates =
+                (CoordinateSequence) node.getChildValue(KML.coordinates.getLocalPart());
 
-        return geometryFactory.createPoint(coordinates.getCoordinate(0));
+            return geometryFactory.createPoint(coordinates.getCoordinate(0));
+        }
+        return null;
     }
     
     public Object getProperty(Object object, QName name) throws Exception {

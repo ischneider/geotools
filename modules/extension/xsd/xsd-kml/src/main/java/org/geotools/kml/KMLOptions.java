@@ -16,15 +16,20 @@
  */
 package org.geotools.kml;
 
+import java.util.List;
 import org.geotools.xml.Configuration;
 import org.geotools.xml.XSD;
+import org.picocontainer.MutablePicoContainer;
 
 /**
  * Parsing options for reuse in both parsers.
  */
 public abstract class KMLOptions extends Configuration {
+    private boolean lenientGeometryParsing = false;
 
     private boolean onlyCollectStyles = false;
+
+    ParseWarnings warnings;
 
     protected KMLOptions(XSD xsd) {
         super(xsd);
@@ -43,4 +48,25 @@ public abstract class KMLOptions extends Configuration {
         return onlyCollectStyles;
     }
 
+    /**
+     * Get a list of any warnings related to lenient parsing. The returned
+     * list may be modified as the parse continues.
+     * @return non-null list of warnings
+     */
+    public List<String> getParseWarnings() {
+        return warnings.getWarnings();
+    }
+
+    public boolean isLenientGeometryParsing() {
+        return lenientGeometryParsing;
+    }
+
+    public void setLenientGeometryParsing(boolean lenientGeometryParsing) {
+        this.lenientGeometryParsing = lenientGeometryParsing;
+    }
+
+    @Override
+    protected void configureContext(MutablePicoContainer container) {
+        container.registerComponentInstance(warnings = new ParseWarnings(lenientGeometryParsing, container));
+    }
 }

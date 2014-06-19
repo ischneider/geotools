@@ -3,6 +3,8 @@ package org.geotools.kml.v22;
 import org.geotools.factory.CommonFactoryFinder;
 import org.geotools.kml.FolderStack;
 import org.geotools.kml.StyleMap;
+import org.geotools.kml.KMLOptions;
+import org.geotools.kml.ParseWarnings;
 import org.geotools.kml.bindings.BoundaryTypeBinding;
 import org.geotools.kml.bindings.ColorBinding;
 import org.geotools.kml.bindings.ColorStyleTypeBinding;
@@ -44,7 +46,8 @@ import org.picocontainer.MutablePicoContainer;
 
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequenceFactory;
-import org.geotools.kml.KMLOptions;
+
+import java.util.List;
 
 /**
  * Parser configuration for the http://www.opengis.net/kml/2.2 schema.
@@ -86,6 +89,8 @@ public class KMLConfiguration extends KMLOptions {
                 schemaRegistry);
         container.registerComponentInstance(schemaRegistry);
         container.registerComponentInstance(handlerFactory);
+
+        super.configureContext(container);
     }
 
     /**

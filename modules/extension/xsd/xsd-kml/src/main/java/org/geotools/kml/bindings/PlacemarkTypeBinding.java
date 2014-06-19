@@ -31,6 +31,7 @@ import org.opengis.feature.simple.SimpleFeatureType;
 import com.vividsolutions.jts.geom.Geometry;
 import java.util.Arrays;
 import java.util.List;
+import org.geotools.kml.ParseWarnings;
 
 
 /**
@@ -60,6 +61,12 @@ import java.util.List;
  * @source $URL$
  */
 public class PlacemarkTypeBinding extends AbstractComplexBinding {
+
+    ParseWarnings parseWarnings;
+
+    public PlacemarkTypeBinding(ParseWarnings parseWarnings) {
+        this.parseWarnings = parseWarnings;
+    }
 
     /**
      * @generated

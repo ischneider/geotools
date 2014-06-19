@@ -272,6 +272,7 @@ public class ParserHandler extends DefaultHandler {
         DocumentHandler docHandler = handlerFactory.createDocumentHandler(this);
 
         context = new DefaultPicoContainer();
+        configure(context);
         context = config.setupContext(context);
 
         docHandler.setContext(context);
@@ -732,6 +733,10 @@ O:          for (int i = 0; i < schemas.length; i++) {
         
         //pop namespace context
         namespaces.popContext();
+    }
+
+    protected void configure(MutablePicoContainer context) {
+        
     }
 
     protected void endElementInternal(ElementHandler handler) {

@@ -88,6 +88,8 @@ public class KMLConfiguration extends KMLOptions {
         container.registerComponentInstance(new StyleMap());
         container.registerComponentInstance(new FolderStack());
         container.registerComponentInstance(new SchemaRegistry());
+
+        super.configureContext(container);
     }
 
     /**

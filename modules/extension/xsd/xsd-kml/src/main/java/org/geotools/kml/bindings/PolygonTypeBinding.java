@@ -88,12 +88,32 @@ public class PolygonTypeBinding extends AbstractComplexBinding {
      */
     public Object parse(ElementInstance instance, Node node, Object value)
         throws Exception {
-        LinearRing outer = (LinearRing) node.getChildValue("outerBoundaryIs");
+        LinearRing outer = null;
         LinearRing[] inner = null;
+
+        Object childValue = node.getChildValue("outerBoundaryIs");
+        if (childValue instanceof LinearRing) {
+            outer = (LinearRing) childValue;
+        }
 
         if (node.hasChild("innerBoundaryIs")) {
             List l = node.getChildValues("innerBoundaryIs");
-            inner = (LinearRing[]) l.toArray(new LinearRing[l.size()]);
+            inner = new LinearRing[l.size()];
+            for (int i = 0; i < l.size(); i++) {
+                if (l.get(i) instanceof LinearRing) {
+                    inner[i] = (LinearRing) l.get(i);
+                } else {
+                    inner = null;
+                    break;
+                }
+            }
+            if (inner == null) {
+                return null;
+            }
+        }
+
+        if (outer == null) {
+            return null;
         }
 
         return geometryFactory.createPolygon(outer, inner);
