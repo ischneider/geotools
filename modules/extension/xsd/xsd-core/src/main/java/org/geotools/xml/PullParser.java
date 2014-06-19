@@ -14,6 +14,8 @@ import javax.xml.stream.XMLStreamReader;
 import org.geotools.xml.impl.ElementHandler;
 import org.geotools.xml.impl.NodeImpl;
 import org.geotools.xml.impl.ParserHandler;
+import org.picocontainer.MutablePicoContainer;
+import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 
 /**
@@ -44,7 +46,7 @@ public class PullParser {
 
     public PullParser(Configuration config, InputStream input, PullParserHandler handler) {
         this.handler = handler;
-        pp = createPullParser(input);
+        this.handler.parser = pp = createPullParser(input);
     }
 
     public Object parse() throws XMLStreamException, IOException, SAXException {
@@ -208,11 +210,37 @@ public class PullParser {
 
     static abstract class PullParserHandler extends ParserHandler {
 
-        PullParser parser;
+        XMLStreamReader parser;
         Object object;
 
         public PullParserHandler(Configuration config) {
             super(config);
+        }
+
+        @Override
+        protected void configure(MutablePicoContainer context) {
+            context.registerComponentInstance(new Locator() {
+
+                @Override
+                public int getColumnNumber() {
+                    return parser.getLocation().getColumnNumber();
+                }
+
+                @Override
+                public int getLineNumber() {
+                    return parser.getLocation().getLineNumber();
+                }
+
+                @Override
+                public String getPublicId() {
+                    return parser.getLocation().getPublicId();
+                }
+
+                @Override
+                public String getSystemId() {
+                    return parser.getLocation().getSystemId();
+                }
+            });
         }
 
         @Override

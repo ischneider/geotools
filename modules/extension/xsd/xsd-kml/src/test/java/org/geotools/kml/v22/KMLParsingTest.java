@@ -2,6 +2,7 @@ package org.geotools.kml.v22;
 
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.LineString;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import static junit.framework.TestCase.assertEquals;
@@ -291,6 +292,27 @@ public class KMLParsingTest extends KMLTestSupport {
         NetworkLink link = (NetworkLink) parse();
 
         assertEquals(link.getHref(), "uri");
+    }
+
+    public void testLenientGeometryParsing() throws Exception {
+        KMLConfiguration config = new KMLConfiguration();
+        config.setLenientGeometryParsing(true);
+        PullParser p = new PullParser(config,
+            getClass().getResourceAsStream("badGeometries.kml"), KML.Placemark);
+
+        Object parsed = null;
+        while ((parsed = p.parse()) != null) {
+            assertTrue(((SimpleFeature) parsed).getDefaultGeometry() == null);
+        }
+        assertEquals(Arrays.asList(
+                "line 20 : Invalid number of coordinates",
+                "line 26 : Invalid number of coordinates",
+                "line 34 : Invalid number of coordinates",
+                "line 48 : Invalid number of points in LinearRing (found 3 - must be 0 or >= 4)",
+                "line 60 : Points of LinearRing do not form a closed linestring",
+                "line 74 : Points of LinearRing do not form a closed linestring",
+                "line 94 : Points of LinearRing do not form a closed linestring"
+        ), config.getParseWarnings());
     }
 
     SimpleFeature parseSamples() throws Exception {

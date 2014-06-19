@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+    <Document>
+        <name>styles</name>
+        <Style id="circle1">
+            <IconStyle>
+                <Icon>
+                    <href>http://server.com/1.png</href>
+                </Icon>
+            </IconStyle>
+            <LabelStyle>
+                <scale>1</scale>
+            </LabelStyle>
+        </Style>
+        <Folder>
+            <!-- invalid coordinates -->
+            <Placemark>
+                <name>Point</name>
+                <Point>
+                    <coordinates>25.4532</coordinates>
+                </Point>
+            </Placemark>
+            <Placemark>
+                <name>LineString</name>
+                <LineString>
+                    <coordinates>25.4532</coordinates>
+                </LineString>
+            </Placemark>
+            <Placemark>
+                <name>Polygon</name>
+                <Polygon>
+                    <outerBoundaryIs>
+                      <LinearRing>
+                          <coordinates>25.4532</coordinates>
+                      </LinearRing>
+                    </outerBoundaryIs>
+                </Polygon>
+            </Placemark>
+            <!-- ring closes but only 3 coords -->
+            <Placemark>
+                <Polygon>
+                    <outerBoundaryIs>
+                      <LinearRing>
+                        <coordinates> -122.0848938459612,37.42257124044786,17
+                          -122.0849580979198,37.42211922626856,17,
+                          -122.0848938459612,37.42257124044786,17
+                         </coordinates>
+                      </LinearRing>
+                    </outerBoundaryIs>
+                </Polygon>
+            </Placemark>
+            <!-- variations of ring not closed -->
+            <Placemark>
+                <Polygon>
+                    <outerBoundaryIs>
+                      <LinearRing>
+                        <coordinates> -122.0848938459612,37.42257124044786,17
+                          -122.0849580979198,37.42211922626856,17
+                         </coordinates>
+                      </LinearRing>
+                    </outerBoundaryIs>
+                </Polygon>
+            </Placemark>
+            <Placemark>
+                <Polygon>
+                    <outerBoundaryIs>
+                      <LinearRing>
+                        <coordinates> -122.0848938459612,37.42257124044786,17
+                          -122.0849580979198,37.42211922626856,17
+                          -122.0848938459612,37.42257124044786,17
+                          -122.0849580979198,37.42211922626856,17
+                          -122.0847469573047,37.42207183952619,17
+                         </coordinates>
+                      </LinearRing>
+                    </outerBoundaryIs>
+                </Polygon>
+            </Placemark>
+            <Placemark>
+                <Polygon>
+                    <outerBoundaryIs>
+                      <LinearRing>
+                        <coordinates>-122.0848938459612,37.42257124044786,17
+                          -122.0849580979198,37.42211922626856,17
+                          -122.0847469573047,37.42207183952619,17
+                          -122.0848938459612,37.42257124044786,17
+                         </coordinates>
+                      </LinearRing>
+                    </outerBoundaryIs>
+                    <innerBoundaryIs>
+                        <LinearRing>
+                            <coordinates> -122.0848938459612,37.42257124044786,17
+                            -122.0849580979198,37.42211922626856,17
+                            </coordinates>
+                        </LinearRing>
+                    </innerBoundaryIs>
+                </Polygon>
+            </Placemark>
+        </Folder>
+    </Document>
+</kml>
+

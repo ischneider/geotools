@@ -16,12 +16,13 @@
  */
 package org.geotools.kml.bindings;
 
-import javax.xml.namespace.QName;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.CoordinateSequence;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LinearRing;
+import javax.xml.namespace.QName;
 import org.geotools.kml.KML;
+import org.geotools.kml.ParseWarnings;
 import org.geotools.xml.AbstractComplexBinding;
 import org.geotools.xml.ElementInstance;
 import org.geotools.xml.Node;
@@ -55,10 +56,12 @@ import org.geotools.xml.Node;
  * @source $URL$
  */
 public class LinearRingTypeBinding extends AbstractComplexBinding {
+    ParseWarnings parseWarnings;
     GeometryFactory geometryFactory;
 
-    public LinearRingTypeBinding(GeometryFactory geometryFactory) {
+    public LinearRingTypeBinding(GeometryFactory geometryFactory, ParseWarnings warnings) {
         this.geometryFactory = geometryFactory;
+        this.parseWarnings = warnings;
     }
 
     /**
@@ -86,9 +89,18 @@ public class LinearRingTypeBinding extends AbstractComplexBinding {
      */
     public Object parse(ElementInstance instance, Node node, Object value)
         throws Exception {
-        CoordinateSequence coordinates = (CoordinateSequence) node.getChildValue(KML.coordinates.getLocalPart());
+        Object childValue = node.getChildValue(KML.coordinates.getLocalPart());
+        if (childValue instanceof CoordinateSequence) {
 
-        return geometryFactory.createLinearRing(coordinates);
+            CoordinateSequence coordinates = (CoordinateSequence) node.getChildValue(KML.coordinates.getLocalPart());
+
+            try {
+                return geometryFactory.createLinearRing(coordinates);
+            } catch (IllegalArgumentException iae) {
+                parseWarnings.addWarning(iae.getMessage(), iae);
+            }
+        }
+        return null;
     }
     
     public Object getProperty(Object object, QName name) throws Exception {
