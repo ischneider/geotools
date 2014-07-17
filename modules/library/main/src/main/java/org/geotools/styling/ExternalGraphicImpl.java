@@ -219,7 +219,7 @@ public class ExternalGraphicImpl implements ExternalGraphic, Symbol, Cloneable {
     }
 
     public OnLineResource getOnlineResource() {
-        if(online == null) {
+        if(online == null && (uri != null || location != null)) {
             OnLineResourceImpl impl = new OnLineResourceImpl();
             URI link = null;
             try {

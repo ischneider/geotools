@@ -19,6 +19,7 @@ package org.geotools.kml.bindings;
 
 import java.net.URI;
 import java.net.URLConnection;
+import java.util.HashMap;
 import javax.xml.namespace.QName;
 import org.geotools.kml.KML;
 import org.geotools.kml.KMLOptions;
@@ -94,15 +95,16 @@ public class IconStyleTypeBinding extends AbstractComplexBinding {
 	 */	
 	public Object parse(ElementInstance instance, Node node, Object value) 
 		throws Exception {
-        PointSymbolizer point = null;
         Node icon = node.getChild("Icon");
+        ExternalGraphicImpl eg = new ExternalGraphicImpl();
+        Graphic g = sb.createGraphic(eg, null, null);
         if (icon != null) {
             Node href = icon.getChild("href");
             URI uri = new URI((String) href.getValue());
             // have to use implementation classes here
             OnLineResourceImpl resource = new OnLineResourceImpl();
             resource.setLinkage(uri);
-            ExternalGraphicImpl eg = new ExternalGraphicImpl();
+            eg.setURI(uri.toString());
             // attempt to resolve the format/mimetype
             // most likely is jpg/png/gif which all resolve using this approach
             // svg doesn't seem supported by google earth (or URLConnection)
@@ -110,10 +112,22 @@ public class IconStyleTypeBinding extends AbstractComplexBinding {
             mimeType = mimeType == null ? "unknown" : mimeType;
             eg.setFormat(mimeType);
             eg.setOnlineResource(resource);
-            Graphic g = sb.createGraphic(eg, null, null);
-            point = sb.createPointSymbolizer(g);
         }
-		return point;
+        Object color = node.getChildValue("color");
+        Object scale = node.getChildValue("scale");
+        // place color and scale values onto the properties to be dealt with elsewhere
+        if (color != null || scale != null) {
+            eg.setCustomProperties(new HashMap<String,Object>());
+            if (color != null) {
+                eg.getCustomProperties().put("color", color);
+            }
+            if (scale != null) {
+                // we could potentially resolve the image here and compute the
+                // size (in pixels) value of the Graphic
+                eg.getCustomProperties().put("scale", scale);
+            }
+        }
+        return sb.createPointSymbolizer(g);
 	}
 
 }

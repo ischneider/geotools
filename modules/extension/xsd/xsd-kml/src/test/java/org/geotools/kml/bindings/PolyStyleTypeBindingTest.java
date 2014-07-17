@@ -45,7 +45,8 @@ public class PolyStyleTypeBindingTest extends KMLTestSupport {
         buildDocument(xml);
 
         PolygonSymbolizer poly = (PolygonSymbolizer) parse();
-        assertEquals(Color.RED, SLD.color(poly.getFill()));
+        // color is aabbggrr so ffff0000 is blue
+        assertEquals(Color.BLUE, SLD.color(poly.getFill()));
         assertEquals(1, SLD.width(poly.getStroke()));
 
         xml = "<PolyStyle>" + "<color>ffff0000</color>" + "<outline>0</outline>" + "<fill>0</fill>"

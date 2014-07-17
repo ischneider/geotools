@@ -40,19 +40,22 @@ public class ColorBindingTest extends KMLTestSupport {
         buildDocument("<color>ffff0000</color>");
 
         Color c = (Color) parse();
-        assertEquals(Color.RED, c);
+        // color is aabbggrr so ffff0000 is blue
+        assertEquals(Color.BLUE, c);
         assertEquals(255, c.getAlpha());
 
         buildDocument("<color>00ff0000</color>");
         c = (Color) parse();
-        assertEquals(255, c.getRed());
-        assertEquals(0, c.getBlue());
+        // color is aabbggrr so ffff0000 is blue
+        assertEquals(0, c.getRed());
+        assertEquals(255, c.getBlue());
         assertEquals(0, c.getGreen());
         assertEquals(0, c.getAlpha());
 
         buildDocument("<color>ff0000</color>");
         c = (Color) parse();
-        assertEquals(Color.RED, c);
+        // color is aabbggrr so ffff0000 is blue
+        assertEquals(Color.BLUE, c);
         assertEquals(255, c.getAlpha());
     }
 }

@@ -2,23 +2,28 @@ package org.geotools.kml.v22;
 
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.LineString;
+import com.vividsolutions.jts.geom.Point;
+import com.vividsolutions.jts.geom.Polygon;
+import java.awt.Color;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import static junit.framework.TestCase.assertEquals;
 import org.geotools.kml.NetworkLink;
+import org.geotools.kml.StyleOverride;
+import org.geotools.styling.ExternalGraphic;
 import org.geotools.styling.FeatureTypeStyle;
+import org.geotools.styling.LineSymbolizer;
 import org.geotools.styling.PointSymbolizer;
+import org.geotools.styling.PolygonSymbolizer;
 import org.geotools.styling.Symbolizer;
+import org.geotools.styling.TextSymbolizer;
 import org.geotools.xml.Parser;
 import org.geotools.xml.PullParser;
 import org.geotools.xml.StreamingParser;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
-
-import com.vividsolutions.jts.geom.Point;
-import com.vividsolutions.jts.geom.Polygon;
-import java.net.URI;
 
 public class KMLParsingTest extends KMLTestSupport {
 
@@ -313,6 +318,96 @@ public class KMLParsingTest extends KMLTestSupport {
                 "line 74 : Points of LinearRing do not form a closed linestring",
                 "line 94 : Points of LinearRing do not form a closed linestring"
         ), config.getParseWarnings());
+    }
+
+    public void testStyleOverriding() throws Exception {
+        KMLConfiguration config = new KMLConfiguration();
+        config.setLenientGeometryParsing(true);
+        config.setOnlyCollectStyles(true);
+        PullParser p = new PullParser(config,
+            getClass().getResourceAsStream("styles.kml"), KML.Placemark);
+
+        SimpleFeature f1 = (SimpleFeature) p.parse();
+        SimpleFeature f2 = (SimpleFeature) p.parse();
+        SimpleFeature f3 = (SimpleFeature) p.parse();
+        SimpleFeature f4 = (SimpleFeature) p.parse();
+        SimpleFeature f5 = (SimpleFeature) p.parse();
+
+        FeatureTypeStyle style;
+
+        style = config.getStyleMap().get((URI) f1.getAttribute("Style"));
+        assertPointSymbolizer(style.rules().get(0).symbolizers().get(0), "http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png", .8D, "d00d1e55");
+        assertTextSymbolizer(style.rules().get(0).symbolizers().get(1), 3D, rgba("ffaadd"));
+
+        style = config.getStyleMap().get((URI) f2.getAttribute("Style"));
+        assertPointSymbolizer(style.rules().get(0).symbolizers().get(0), "4.png", .4D, "ff0000");
+        assertTextSymbolizer(style.rules().get(0).symbolizers().get(1), 5D, rgba("bbaadd"));
+        assertLineSymbolizer(style.rules().get(0).symbolizers().get(2), 5D, rgba("abcabc"));
+
+        style = config.getStyleMap().get((URI) f3.getAttribute("Style"));
+        assertLineSymbolizer(style.rules().get(0).symbolizers().get(0), 7D, rgba("abcabc"));
+
+        style = config.getStyleMap().get((URI) f4.getAttribute("Style"));
+        assertLineSymbolizer(style.rules().get(0).symbolizers().get(0), 5D, rgba("eefbee"));
+        assertPolygonSymbolizer(style.rules().get(0).symbolizers().get(1), rgba("beefee"));
+    }
+
+    // to support writing the tests to mirror the KML, convert a KML agbr color
+    // to an rgba color used in geotools
+    String rgba(String agbr) {
+        int i = 0;
+        String a = "";
+
+        // the color spec is a?bgr
+        if (agbr.length() > 6) {
+            a = agbr.substring(i, 2);
+            i = 2;
+        }
+
+        String b = agbr.substring(i, i + 2);
+        String g = agbr.substring(i + 2, i + 4);
+        String r = agbr.substring(i + 4, i + 6);
+
+        return ("#" + r + g + b + a).toUpperCase();
+    }
+
+    void assertLineSymbolizer(Symbolizer s, Double width, String color) {
+        LineSymbolizer ls = (LineSymbolizer) s;
+        assertEquals(width, ls.getStroke().getWidth().evaluate(null));
+        assertEquals(color, (String) ls.getStroke().getColor().evaluate(null));
+    }
+
+    void assertPolygonSymbolizer(Symbolizer s, String color) {
+        PolygonSymbolizer ls = (PolygonSymbolizer) s;
+        assertEquals(color, (String) ls.getFill().getColor().evaluate(null));
+    }
+
+    void assertPointSymbolizer(Symbolizer s, String uri, Double scale, String color) {
+        PointSymbolizer ps = (PointSymbolizer) s;
+        ExternalGraphic eg = (ExternalGraphic) ps.getGraphic().graphicalSymbols().get(0);
+        assertNotNull(eg.getFormat());
+        assertEquals(uri, eg.getOnlineResource().getLinkage().toString());
+        assertEquals(scale, eg.getCustomProperties().get("scale"));
+        assertEquals(color, (Color) eg.getCustomProperties().get("color"));
+    }
+
+    void assertTextSymbolizer(Symbolizer s, Double scale, String color) {
+        TextSymbolizer ts = (TextSymbolizer) s;
+        assertEquals(16 * scale, ts.getFont().getSize().evaluate(null));
+        assertEquals(color, ts.getFill().getColor().evaluate(null));
+    }
+
+    void assertEquals(String abgr, Color color) {
+        int o = 0;
+        int a = 255;
+        if (abgr.length() > 6) {
+            a = Integer.parseInt(abgr.substring(0, 2),16);
+            o += 2;
+        }
+        int b = Integer.parseInt(abgr.substring(o, o+2),16);
+        int g = Integer.parseInt(abgr.substring(o+2, o+4),16);
+        int r = Integer.parseInt(abgr.substring(o+4, o+6),16);
+        assertEquals(new Color(r,g,b,a), color);
     }
 
     SimpleFeature parseSamples() throws Exception {

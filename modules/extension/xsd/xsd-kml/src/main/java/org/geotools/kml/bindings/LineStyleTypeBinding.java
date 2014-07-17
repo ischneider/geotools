@@ -19,6 +19,7 @@ package org.geotools.kml.bindings;
 import java.awt.Color;
 import javax.xml.namespace.QName;
 import org.geotools.kml.KML;
+import org.geotools.kml.StyleOverride;
 import org.geotools.styling.LineSymbolizer;
 import org.geotools.styling.StyleBuilder;
 import org.geotools.xml.AbstractComplexBinding;
@@ -90,8 +91,17 @@ public class LineStyleTypeBinding extends AbstractComplexBinding {
     public Object parse(ElementInstance instance, Node node, Object value)
         throws Exception {
         Color color = (Color) value;
-        Number width = (Number) node.getChildValue("width", Float.valueOf(1f));
+        Number width = (Number) node.getChildValue("width");
+        Color activeColor = color == null ? Color.WHITE : color;
+        Number activeWidth = width == null ? Float.valueOf(1f) : width;
 
-        return sb.createLineSymbolizer(color, width.doubleValue());
+        LineSymbolizer ls = sb.createLineSymbolizer(activeColor, activeWidth.doubleValue());
+        if (color == null) {
+            ls.getOptions().put(StyleOverride.DEFAULT_COLOR, "true");
+        }
+        if (width == null) {
+            ls.getOptions().put(StyleOverride.DEFAULT_WIDTH, "true");
+        }
+        return ls;
     }
 }
