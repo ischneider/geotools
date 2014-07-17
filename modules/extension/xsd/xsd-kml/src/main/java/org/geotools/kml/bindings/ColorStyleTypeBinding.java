@@ -81,8 +81,6 @@ public class ColorStyleTypeBinding extends AbstractComplexBinding {
 
         if (node.hasChild(Color.class)) {
             color = (Color) node.getChildValue(Color.class);
-        } else {
-            color = Color.WHITE;
         }
 
         return color;

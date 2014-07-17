@@ -16,19 +16,21 @@
  */
 package org.geotools.kml.bindings;
 
+import com.vividsolutions.jts.geom.LinearRing;
+import com.vividsolutions.jts.geom.Point;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import javax.xml.namespace.QName;
-
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder;
 import org.geotools.kml.FolderStack;
 import org.geotools.kml.KML;
+import org.geotools.kml.KMLOptions;
 import org.geotools.kml.StyleMap;
+import org.geotools.kml.StyleOverride;
 import org.geotools.kml.v22.SchemaRegistry;
 import org.geotools.styling.FeatureTypeStyle;
 import org.geotools.xml.AbstractComplexBinding;
@@ -37,10 +39,6 @@ import org.geotools.xml.Node;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeDescriptor;
-
-import com.vividsolutions.jts.geom.LinearRing;
-import com.vividsolutions.jts.geom.Point;
-import org.geotools.kml.KMLOptions;
 
 
 /**
@@ -88,7 +86,8 @@ public class FeatureTypeBinding extends AbstractComplexBinding {
     public static final SimpleFeatureType FeatureType;
     public static final SimpleFeatureType FeatureTypeStyleURI;
 
-    StyleMap styleMap;
+    private StyleOverride styleOverride;
+    private StyleMap styleMap;
     private final FolderStack folderStack;
     private SchemaRegistry schemaRegistry;
     private final KMLOptions config;
@@ -133,11 +132,12 @@ public class FeatureTypeBinding extends AbstractComplexBinding {
     }
 
     public FeatureTypeBinding(StyleMap styleMap, FolderStack folderStack,
-            SchemaRegistry schemaRegistry, KMLOptions config) {
+            SchemaRegistry schemaRegistry, KMLOptions config, StyleOverride styleOverride) {
         this.styleMap = styleMap;
         this.folderStack = folderStack;
         this.schemaRegistry = schemaRegistry;
         this.config = config;
+        this.styleOverride = styleOverride;
     }
 
     /**
@@ -243,15 +243,21 @@ public class FeatureTypeBinding extends AbstractComplexBinding {
                 style = styleMap.get(uri);
             }
         } else {
-            // if this node is the document, compute the URI from the id
-            if (uri == null) {
+            // we could have an inline Style overriding another
+            if (uri != null) {
+                // stash the inline Style for later because we might not have the
+                // definition of the overridden one yet. don't add to the overall
+                // styleMap since it's inline/anonymous
+                b.featureUserData(FeatureTypeStyle.class, style);
+            } else {
+                // if this node is the document, compute the URI from the id
                 String id = (String) node.getChild("Style").getAttributeValue("id");
                 if (id != null) {
                     uri = new URI("#" + id);
                 }
+                // if uri is still null, this will register an anonymous inline style with a generated URI
+                uri = styleMap.put(uri, style);
             }
-            // if uri is still null, this will register an anonymous inline style with a generated URI
-            uri = styleMap.put(uri, style);
         }
 
         if (config.isOnlyCollectStyles()) {
@@ -300,7 +306,11 @@ public class FeatureTypeBinding extends AbstractComplexBinding {
         b.featureUserData("Folder", folderStack.asList());
 
         //&lt;element minOccurs="0" name="Metadata" type="kml:MetadataType"/&gt;
-        return b.buildFeature((String) node.getAttributeValue("id"));
+        SimpleFeature feature = b.buildFeature((String) node.getAttributeValue("id"));
+
+        styleOverride.process(feature);
+
+        return feature;
     }
     
     private String normalizeSchemaName(URI schemaURI) {

@@ -44,6 +44,7 @@ public class LabelStyleTypeBindingTest extends KMLTestSupport {
         buildDocument(xml);
 
         TextSymbolizer text = (TextSymbolizer) parse();
-        assertEquals(Color.RED, SLD.color(text.getFill()));
+        // color is aabbggrr so ffff0000 is blue
+        assertEquals(Color.BLUE, SLD.color(text.getFill()));
     }
 }

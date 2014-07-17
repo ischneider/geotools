@@ -19,6 +19,7 @@ package org.geotools.kml.bindings;
 import java.awt.Color;
 import javax.xml.namespace.QName;
 import org.geotools.kml.KML;
+import org.geotools.kml.StyleOverride;
 import org.geotools.styling.StyleBuilder;
 import org.geotools.styling.TextSymbolizer;
 import org.geotools.xml.AbstractComplexBinding;
@@ -90,19 +91,24 @@ public class LabelStyleTypeBinding extends AbstractComplexBinding {
     public Object parse(ElementInstance instance, Node node, Object value)
         throws Exception {
         Color color = (Color) value;
+        Color active = color == null ? Color.WHITE : color;
         Double scale = (Double) node.getChildValue("scale");
 
         TextSymbolizer textSymbolizer = null;
         // if alpha is zero or scale is zero, just don't parse this
-        if (color.getAlpha() > 0 && (scale == null || scale > 0)) {
+        if (active.getAlpha() > 0 && (scale == null || scale > 0)) {
             textSymbolizer= sb.createTextSymbolizer();
             double size = 16; // google earth approx initial font size at 100% scale
             if (scale != null) {
                 size = size * scale;
             }
             textSymbolizer.getFont().setFontSize(sb.literalExpression(size));
-            textSymbolizer.setFill(sb.createFill(color, color.getAlpha() / 255.));
+            textSymbolizer.setFill(sb.createFill(active, active.getAlpha() / 255.));
             textSymbolizer.setLabel(sb.getFilterFactory().property("name"));
+
+            if (color == null) {
+                textSymbolizer.getOptions().put(StyleOverride.DEFAULT_COLOR, "true");
+            }
         }
         return textSymbolizer;
     }

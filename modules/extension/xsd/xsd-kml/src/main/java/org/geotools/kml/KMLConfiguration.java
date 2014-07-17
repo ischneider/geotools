@@ -85,7 +85,9 @@ public class KMLConfiguration extends KMLOptions {
         container.registerComponentInstance(styleBuilder);
         container.registerComponentInstance(new GeometryFactory());
         container.registerComponentInstance(CoordinateArraySequenceFactory.instance());
-        container.registerComponentInstance(new StyleMap());
+        StyleMap styleMap = new StyleMap();
+        container.registerComponentInstance(styleMap);
+        container.registerComponentInstance(new StyleOverride(styleMap));
         container.registerComponentInstance(new FolderStack());
         container.registerComponentInstance(new SchemaRegistry());
 

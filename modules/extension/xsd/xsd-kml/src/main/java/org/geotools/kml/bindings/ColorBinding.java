@@ -103,14 +103,15 @@ public class ColorBinding extends AbstractSimpleBinding {
         int i = 0;
         String a = null;
 
+        // the color spec is a?bgr
         if (color.length() > 6) {
             a = color.substring(i, 2);
             i = 2;
         }
 
-        String r = color.substring(i, i + 2);
+        String b = color.substring(i, i + 2);
         String g = color.substring(i + 2, i + 4);
-        String b = color.substring(i + 4, i + 6);
+        String r = color.substring(i + 4, i + 6);
 
         if (a != null) {
             return new Color(Integer.parseInt(r, 16), Integer.parseInt(g, 16),

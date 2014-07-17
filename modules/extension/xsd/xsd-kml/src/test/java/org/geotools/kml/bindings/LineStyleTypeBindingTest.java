@@ -45,7 +45,8 @@ public class LineStyleTypeBindingTest extends KMLTestSupport {
         buildDocument(xml);
 
         LineSymbolizer line = (LineSymbolizer) parse();
-        assertEquals(Color.RED, SLD.color(line));
+        // color is aabbggrr so ffff0000 is blue
+        assertEquals(Color.BLUE, SLD.color(line));
         assertEquals(2, SLD.width(line));
 
         xml = "<LineStyle>" + "</LineStyle>";

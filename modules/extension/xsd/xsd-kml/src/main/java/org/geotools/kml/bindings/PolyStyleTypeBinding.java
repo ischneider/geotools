@@ -19,6 +19,7 @@ package org.geotools.kml.bindings;
 import java.awt.Color;
 import javax.xml.namespace.QName;
 import org.geotools.kml.KML;
+import org.geotools.kml.StyleOverride;
 import org.geotools.styling.PolygonSymbolizer;
 import org.geotools.styling.StyleBuilder;
 import org.geotools.xml.AbstractComplexBinding;
@@ -91,18 +92,24 @@ public class PolyStyleTypeBinding extends AbstractComplexBinding {
     public Object parse(ElementInstance instance, Node node, Object value)
         throws Exception {
         Color color = (Color) value;
+        Color activeFill = color == null ? Color.WHITE : color;
         PolygonSymbolizer poly = sb.createPolygonSymbolizer();
 
         Boolean fill = (Boolean) node.getChildValue("fill", Boolean.TRUE);
         Boolean outline = (Boolean) node.getChildValue("outline", Boolean.TRUE);
 
         if (fill) {
-            poly.setFill(sb.createFill(color));
+            if (color == null) {
+                poly.getOptions().put(StyleOverride.DEFAULT_COLOR, "true");
+            }
+            poly.setFill(sb.createFill(activeFill));
         } else {
             poly.setFill(null);
         }
 
         if (outline) {
+            // this is more of a marker since the actual stroking gets done by
+            // the line
             poly.setStroke(sb.createStroke());
         } else {
             poly.setStroke(null);

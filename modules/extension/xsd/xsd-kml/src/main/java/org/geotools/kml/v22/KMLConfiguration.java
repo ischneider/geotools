@@ -47,7 +47,7 @@ import org.picocontainer.MutablePicoContainer;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.impl.CoordinateArraySequenceFactory;
 
-import java.util.List;
+import org.geotools.kml.StyleOverride;
 
 /**
  * Parser configuration for the http://www.opengis.net/kml/2.2 schema.
@@ -56,7 +56,7 @@ import java.util.List;
  */
 public class KMLConfiguration extends KMLOptions {
 
-    private StyleMap styleMap;
+    private final StyleMap styleMap;
 
     /**
      * Creates a new configuration.
@@ -65,8 +65,8 @@ public class KMLConfiguration extends KMLOptions {
      */     
     public KMLConfiguration() {
        super(KML.getInstance());
-       
-       //TODO: add dependencies here
+
+       styleMap = new StyleMap();
     }
 
     public StyleMap getStyleMap() {
@@ -82,7 +82,8 @@ public class KMLConfiguration extends KMLOptions {
         container.registerComponentInstance(styleBuilder);
         container.registerComponentInstance(new GeometryFactory());
         container.registerComponentInstance(CoordinateArraySequenceFactory.instance());
-        container.registerComponentInstance(styleMap = new StyleMap());
+        container.registerComponentInstance(styleMap);
+        container.registerComponentInstance(new StyleOverride(styleMap));
         container.registerComponentInstance(new FolderStack());
         SchemaRegistry schemaRegistry = new SchemaRegistry();
         KMLCustomSchemaHandlerFactory handlerFactory = new KMLCustomSchemaHandlerFactory(
